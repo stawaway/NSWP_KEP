@@ -177,24 +177,11 @@ function columngen_params(P, Γ, K, L, pra_dict)
   @objective(model, Max, f_1)
   optimize!(model)
   opt_f1 = objective_value(model)
-  
+
   if termination_status(model) == MOI.OPTIMAL
     # obtain the nadir d_2
     d_2 = -sum(abs(value(abs_var[i])) for i=0:P-1)
     d_1 = 0.0
-  elseif termination_status(model) == MOI.TIME_LIMIT && has_values(model)
-    error("Could not solve the inital NSWP model")
-  else
-    error("The model was not solved correctly")
-  end
-
-  @variable(model, r)
-  @variable(model, t[i=0:P-1])
-  @constraint(model, z_cons[i=0:P-1], [t[i], abs_var[i]] in SecondOrderCone())
-  @constraint(model, nswp_obj, [f_1 - d_1, sum(t[i] for i=0:P-1) - d_2, r] in RotatedSecondOrderCone()) 
-  @objective(model, Min, -r) 
-
-  if termination_status(model) == MOI.OPTIMAL
     vcount = Dict([i=>round(Int, value(unique[i])) for i=0:P-1])
     return vcount, [d_1, d_2]
   elseif termination_status(model) == MOI.TIME_LIMIT && has_values(model)
