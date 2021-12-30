@@ -132,65 +132,23 @@ function cycle_counts(G, L)
 end
 
 
-#function f_1(x)
-#  sum(x[idx] for idx in eachindex(x))
-#end
-
-
-#function f_2(x, sensitized)
-#  expr = (x[l,(i,j),k] for (l,(i,j),k) in eachindex(x) if j in sensitized)
-#  isempty(expr) ? GenericAffExpr{Float64, VariableRef}(0) : sum(expr)
-#end
-
-
-#function choose_obj(fname, x, sensitized)
-#  if fname == "f_1"
-#    f_1(x)
-#  elseif fname == "f_2"
-#    f_2(x,sensitized)
-#  else
-#    throw("Wrong function name for the objective. Try another one.")
-#  end
-#end
-
-
-function columngen_params(P, Γ, K, L, pra_dict)
-  if pra_dict != nothing
-    sensitized = Set(i for (i,pra) in pra_dict if pra >= 0.8)
-  else
-    sensitized = Set()
-  end
-  n = length(Γ) 
-  model = Model(Mosek.Optimizer)
-  set_optimizer_attribute(model, "MSK_IPAR_LOG", 0)
-
-  @variable(model, x[l=0:n-2,(i,j)=Γ[l][2],K[i,j,l]], Bin)
-
-  @constraint(model, unique[i=0:n-1], sum(x[l,(j,i),k] for l=0:i, (j,v) in Γ[l][2], k in K[j,i,l] if v == i) <= 1)
-  @constraint(model, flow[l=0:n-2,i=l+1:n-1,k=1:L-1], sum(x[l,(j,i),k] for (j,v) in Γ[l][2] if v == i && k in K[j,i,l]) == sum(x[l,(i,j),k+1] for (v,j) in Γ[l][2] if v == i && (k+1) in K[i,j,l]))
-  #con = Dict(i=>constraint_object(unique[i]).func for i=0:n-1)
-
+function columngen_params(model, unique, num_P)
   @variable(model, z)
-  @variable(model, abs_var[i=0:P-1])
-  f_1 = sum(constraint_object(unique[i]).func for i=0:P-1)
-  @constraint(model, P * z == f_1)
-  @constraint(model, abs_cons[i=0:P-1], abs_var[i] == constraint_object(unique[i]).func - z)
-  @objective(model, Max, f_1)
+  @variable(model, abs_var[i=0:num_P-1])
+  @constraint(model, num_P * z == objective_function(model))
+  @constraint(model, abs_cons[i=0:num_P-1], abs_var[i] == constraint_object(unique[i]).func - z)
   optimize!(model)
-  opt_f1 = objective_value(model)
 
   if termination_status(model) == MOI.OPTIMAL || (termination_status(model) == MOI.TIME_LIMIT && has_values(model)) 
     # obtain the nadir d_2
-    d_2 = -sum(abs(value(abs_var[i])) for i=0:P-1)
+    d_2 = -sum(abs(value(abs_var[i])) for i=0:num_P-1)
     d_1 = 0.0
-    #vcount = Dict([i=>round(Int, value(unique[i])) for i=0:P-1])
-    #return vcount, [d_1, d_2]
   else
     error("The model was not solved correctly")
   end
 
   feasible = Set{Int64}()
-  for i=0:P-1
+  for i=0:num_P-1
     temp = @constraint(model, constraint_object(unique[i]).func == 1)
     optimize!(model)
     delete(model, temp)
@@ -201,6 +159,11 @@ function columngen_params(P, Γ, K, L, pra_dict)
     end
   end
 
+  delete(model, z)
+  unregister(model, :z)
+  for i=0:num_P-1
+    delete(model, abs_var[i])
+  end
   vcount = Dict([i=>round(Int, value(unique[i])) for i in feasible])
   return vcount, [d_1, d_2]
 end
@@ -225,7 +188,7 @@ function sub_problem(model, obj_expr, x)
 end
 
 
-function master_problem(vcount, nadir, P, Γ, K, L, pra_dict)
+function master_problem(num_P, Γ, K, L, pra_dict)
   # start time
   stime = time() 
   # Set of sensitized patients 
@@ -235,7 +198,51 @@ function master_problem(vcount, nadir, P, Γ, K, L, pra_dict)
     sensitized = Set()
   end
   n = length(Γ)
+  
+  # Submodel i.e Subproblem
+  submodel = Model(Mosek.Optimizer)
+  set_optimizer_attribute(submodel, "MSK_IPAR_LOG", 0)
+
+  @variable(submodel, x[l=0:n-2,(i,j)=Γ[l][2],K[i,j,l]], Bin)
+
+  @constraint(submodel, unique[i=0:n-1], sum(x[l,(j,i),k] for l=0:i, (j,v) in Γ[l][2], k in K[j,v,l] if v == i) <= 1)
+  #con = Dict(i=>constraint_object(unique[i]).func for i=0:n-1)
+  @constraint(submodel, flow[l=0:n-2,i=l+1:n-1,k=1:L-1], sum(x[l,(j,i),k] for (j,v) in Γ[l][2] if v == i && k in K[j,i,l]) == sum(x[l,(i,j),k+1] for (v,j) in Γ[l][2] if v == i && (k+1) in K[i,j,l]))
+  f_1 = sum(constraint_object(unique[i]).func for i=0:num_P-1)
+  @objective(submodel, Max, f_1)
+
+  # obtain the first solution and the nadir point
+  vcount, nadir = columngen_params(submodel, unique, num_P)
   d_1, d_2 = nadir
+  P = Set{Int64}(keys(vcount))
+
+  # delete the constraints that will not be used from the submodel
+  for i=0:num_P-1
+    if haskey(vcount, i)
+      continue
+    else
+      delete(submodel, unique[i])
+    end
+  end
+
+  for l=0:min(num_P-1,n-2)
+    if haskey(vcount, l)
+      continue
+    else
+      for (i,j) in Γ[l][2]
+        if !isempty(K[i,j,l]) 
+          delete(submodel, x[l,(i,j),K[i,j,l]])
+        end
+      end
+    end
+    
+    for i=l+1:n-1
+      for k=1:L-1
+        delete(submodel, flow[l,i,k])
+      end
+    end
+  end
+  num_P = length(keys(vcount))
 
   # Main model i.e. Master Problem
   model = Model(Mosek.Optimizer) 
@@ -244,20 +251,20 @@ function master_problem(vcount, nadir, P, Γ, K, L, pra_dict)
   δ = [@variable(model, lower_bound=0)]
   @variable(model, y[i=1:2])
   @variable(model, z_0)
-  @variable(model, z[i=0:P-1])
+  @variable(model, z[i=P])
   @variable(model, T)
-  @variable(model, t[i=0:P-1])
+  @variable(model, t[i=P])
   @variable(model, r)
 
   # define complicating constraints
-  A = [Dict(i=>abs(vcount[i]) for i=0:P-1)]
+  A = [Dict(i=>abs(vcount[i]) for i=P)]
   @constraint(model, c1, sum(δ) == 1)
-  @constraint(model, c2, y[1] == sum(A[1][i] * δ[1] for i=0:P-1) - d_1) 
+  @constraint(model, c2, y[1] == sum(A[1][i] * δ[1] for i=P) - d_1) 
   @constraint(model, c3, y[2] == -T - d_2) 
-  @constraint(model, c4, P * z_0 == sum(A[1][i] * δ[1] for i=0:P-1))
-  @constraint(model, c5[i=0:P-1], z[i] == sum(A[1][i] * δ[1]) - z_0)
+  @constraint(model, c4, num_P * z_0 == sum(A[1][i] * δ[1] for i=P))
+  @constraint(model, c5[i=P], z[i] == sum(A[1][i] * δ[1]) - z_0)
   @constraint(model, c6, [y[1], y[2], r] in RotatedSecondOrderCone())
-  @constraint(model, c7[i=0:P-1], [t[i], z[i]] in SecondOrderCone())
+  @constraint(model, c7[i=P], [t[i], z[i]] in SecondOrderCone())
   @constraint(model, c8, sum(t) == T)
 
   @objective(model, Min, -r)
@@ -274,17 +281,6 @@ function master_problem(vcount, nadir, P, Γ, K, L, pra_dict)
     error("The model could not be solved correctly")
   end
 
-
-  # Submodel i.e Subproblem
-  submodel = Model(Mosek.Optimizer)
-  set_optimizer_attribute(submodel, "MSK_IPAR_LOG", 0)
-
-  @variable(submodel, x[l=0:n-2,(i,j)=Γ[l][2],K[i,j,l]], Bin)
-
-  @constraint(submodel, unique[i=0:n-1], sum(x[l,(j,i),k] for l=0:i, (j,v) in Γ[l][2], k in K[j,v,l] if v == i) <= 1)
-  con = Dict(i=>constraint_object(unique[i]).func for i=0:n-1)
-  @constraint(submodel, flow[l=0:n-2,i=l+1:n-1,k=1:L-1], sum(x[l,(j,i),k] for (j,v) in Γ[l][2] if v == i && k in K[j,i,l]) == sum(x[l,(i,j),k+1] for (v,j) in Γ[l][2] if v == i && (k+1) in K[i,j,l]))
-
   while true
     π_0 = dual(c1)
     π_1 = dual(c2)
@@ -292,8 +288,8 @@ function master_problem(vcount, nadir, P, Γ, K, L, pra_dict)
     π_3 = dual(c4)
     β = dual.(c5)
 
-    _vcount_s = Dict([i=>constraint_object(unique[i]).func for i=0:P-1])
-    obj_expr = -π_0 + sum(_vcount_s[i] * (π_1 + π_3 + β[i]) for i=0:P-1)
+    _vcount_s = Dict([i=>constraint_object(unique[i]).func for i=P])
+    obj_expr = -π_0 + sum(_vcount_s[i] * (π_1 + π_3 + β[i]) for i=P)
     if !sub_problem(submodel, obj_expr, x)
       println("NSWP objective: ", objective_value(model))
       println("L1: ", value(T))
@@ -305,19 +301,19 @@ function master_problem(vcount, nadir, P, Γ, K, L, pra_dict)
     end
     
     # count vertices in solutions
-    vcount_s = Dict([i=>round(Int, value(constraint_object(unique[i]).func)) for i=0:P-1])
+    vcount_s = Dict([i=>round(Int, value(constraint_object(unique[i]).func)) for i=P])
 
     # add new coefficient and column
     push!(δ, @variable(model, lower_bound=0)) 
     push!(A, vcount_s)
 
     # modify the constraints by adding the new column
-    for i=0:P-1
+    for i=P
       set_normalized_coefficient(c5[i], δ[end], -vcount_s[i])
     end
     set_normalized_coefficient(c1, δ[end], 1)
-    set_normalized_coefficient(c2, δ[end], -sum(vcount_s[i] for i=0:P-1))
-    set_normalized_coefficient(c4, δ[end], -sum(vcount_s[i] for i=0:P-1))
+    set_normalized_coefficient(c2, δ[end], -sum(vcount_s[i] for i=P))
+    set_normalized_coefficient(c4, δ[end], -sum(vcount_s[i] for i=P))
 
     # reoptimize
     optimize!(model)
@@ -337,10 +333,11 @@ function main()
 
   filename = split(path, '/')[end]
 
-  vcount, nadir = columngen_params(num_P, Γ, K, L, pra_dict)
-  stats = master_problem(vcount, nadir, num_P, Γ, K, L, pra_dict)
+  #vcount, nadir = columngen_params(num_P, Γ, K, L, pra_dict)
+  stats = master_problem(num_P, Γ, K, L, pra_dict)
+  println(stats)
 
-  save("$filename.jld2", stats)
+  #save("$filename.jld2", stats)
 
 end
 
