@@ -168,6 +168,7 @@ function columngen_params(P, Γ, K, L, pra_dict)
 
   @constraint(model, unique[i=0:n-1], sum(x[l,(j,i),k] for l=0:i, (j,v) in Γ[l][2], k in K[j,i,l] if v == i) <= 1)
   @constraint(model, flow[l=0:n-2,i=l+1:n-1,k=1:L-1], sum(x[l,(j,i),k] for (j,v) in Γ[l][2] if v == i && k in K[j,i,l]) == sum(x[l,(i,j),k+1] for (v,j) in Γ[l][2] if v == i && (k+1) in K[i,j,l]))
+  #con = Dict(i=>constraint_object(unique[i]).func for i=0:n-1)
 
   @variable(model, z)
   @variable(model, abs_var[i=0:P-1])
@@ -178,18 +179,30 @@ function columngen_params(P, Γ, K, L, pra_dict)
   optimize!(model)
   opt_f1 = objective_value(model)
 
-  if termination_status(model) == MOI.OPTIMAL
+  if termination_status(model) == MOI.OPTIMAL || (termination_status(model) == MOI.TIME_LIMIT && has_values(model)) 
     # obtain the nadir d_2
     d_2 = -sum(abs(value(abs_var[i])) for i=0:P-1)
     d_1 = 0.0
-    vcount = Dict([i=>round(Int, value(unique[i])) for i=0:P-1])
-    return vcount, [d_1, d_2]
-  elseif termination_status(model) == MOI.TIME_LIMIT && has_values(model)
-    suboptimal_solution = value.(x)
-    suboptimal_objective = objective_value(model)
+    #vcount = Dict([i=>round(Int, value(unique[i])) for i=0:P-1])
+    #return vcount, [d_1, d_2]
   else
     error("The model was not solved correctly")
   end
+
+  feasible = Set{Int64}()
+  for i=0:P-1
+    temp = @constraint(model, constraint_object(unique[i]).func == 1)
+    optimize!(model)
+    delete(model, temp)
+    if termination_status(model) == MOI.INFEASIBLE
+      continue
+    else
+      push!(feasible, i)
+    end
+  end
+
+  vcount = Dict([i=>round(Int, value(unique[i])) for i in feasible])
+  return vcount, [d_1, d_2]
 end
 
 
