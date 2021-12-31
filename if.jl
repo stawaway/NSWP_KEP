@@ -32,7 +32,7 @@ end
 function copy_shortest_paths(G)
   (V, A) = G
   n = length(V)
-  d = Dict((i,j,l)=>Inf for l=0:n-2 for i=l:n-1,j=l:n-1)  #Dict((i,j,l)=>Inf for i=0:n-1,j=0:n-1,l=0:n-2)
+  d = Dict((i,j,l)=>Inf for l=0:n-2 for i=l:n-1,j=l:n-1)
   v_type = Int64; e_type = Tuple{v_type, v_type}
   Γ = Dict{Int64, Tuple{Set{v_type},Set{e_type}}}()
 
@@ -80,55 +80,6 @@ function get_positions(G, d, L)
   end
 
   return K
-end
-
-
-function get_tuples(s, n, L)
-  if L==1
-    return [Set(i) for i=s:n-1]
-  end
-  arr = Array{Set{Int64}, 1}()
-  for i=s:n-L
-    temp = get_tuples(i+1, n, L-1)
-    for cycle in temp
-      push!(cycle, i)
-    end
-    arr = cat(arr, temp, dims=1)
-  end
-  return arr
-end
-
-
-function is_cycle(tup, A)
-  target = first(tup)
-  n = length(tup)
-  perms = permutations(collect(tup))
-  for p in perms
-    flag = true
-    for (i,x) in enumerate(p)
-      next = (i % n) + 1
-      if !((x, p[next]) in A)
-        flag = false
-        break
-      end
-    end
-    if flag
-      return flag
-    end
-  end
-  return false
-end
-
-
-function cycle_counts(G, L)
-  (V, A) = G
-  n = length(V)
-  comb = []
-  for k=L:-1:2
-    comb = cat(comb, get_tuples(0, n, k), dims=1)
-  end
-  cycles = [c for c in comb if is_cycle(c, A)]
-  counts = Dict(i=>count(x->i in x, cycles) for i=0:n-1)
 end
 
 
@@ -206,7 +157,6 @@ function master_problem(num_P, Γ, K, L, pra_dict)
   @variable(submodel, x[l=0:n-2,(i,j)=Γ[l][2],K[i,j,l]], Bin)
 
   @constraint(submodel, unique[i=0:n-1], sum(x[l,(j,i),k] for l=0:i, (j,v) in Γ[l][2], k in K[j,v,l] if v == i) <= 1)
-  #con = Dict(i=>constraint_object(unique[i]).func for i=0:n-1)
   @constraint(submodel, flow[l=0:n-2,i=l+1:n-1,k=1:L-1], sum(x[l,(j,i),k] for (j,v) in Γ[l][2] if v == i && k in K[j,i,l]) == sum(x[l,(i,j),k+1] for (v,j) in Γ[l][2] if v == i && (k+1) in K[i,j,l]))
   f_1 = sum(constraint_object(unique[i]).func for i=0:num_P-1)
   @objective(submodel, Max, f_1)
@@ -295,7 +245,7 @@ function master_problem(num_P, Γ, K, L, pra_dict)
       println("L1: ", value(T))
       println("Number of transplants: ", value(y[1]) + d_1)
       etime = time() - stime
-      stats = Dict("L1"=>value(T), "NSWP"=>objective_value(model), "Number of transplants"=>value(y[1] + d_1), "time"=>etime)
+      stats = Dict("L1"=>value(T), "L1:NSWP"=>objective_value(model), "L1:transplants"=>value(y[1] + d_1), "L1:time"=>etime)
       return stats
       break
     end
@@ -333,11 +283,19 @@ function main()
 
   filename = split(path, '/')[end]
 
-  #vcount, nadir = columngen_params(num_P, Γ, K, L, pra_dict)
   stats = master_problem(num_P, Γ, K, L, pra_dict)
-  println(stats)
 
-  #save("$filename.jld2", stats)
+  if !isfile("$filename.jld2") 
+    save("$filename.jld2", stats)
+  else
+    _stats = load("$filename.jld2")
+    for key in keys(stats)
+      if !haskey(_stats, key)
+        _stats[key] = stats[key]
+      end
+    end
+    save("$filename.jld2", _stats)
+  end
 
 end
 
