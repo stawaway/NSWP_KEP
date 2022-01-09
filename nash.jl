@@ -84,11 +84,15 @@ end
 
 
 function columngen_params(model, unique, num_P)
+  @variable(model, z)
+  @variable(model, abs_var[i=0:num_P-1])
+  @constraint(model, num_P * z == objective_function(model))
+  @constraint(model, abs_cons[i=0:num_P-1], abs_var[i] == constraint_object(unique[i]).func - z)
   optimize!(model)
 
   if termination_status(model) == MOI.OPTIMAL || (termination_status(model) == MOI.TIME_LIMIT && has_values(model)) 
     # obtain the nadir d_2
-    d_2 = 0.0 
+    #d_2 = -sum(abs(value(abs_var[i])) for i=0:num_P-1)
     d_1 = 0.0
   else
     error("The model was not solved correctly")
@@ -106,7 +110,13 @@ function columngen_params(model, unique, num_P)
     end
   end
 
+  delete(model, z)
+  unregister(model, :z)
+  for i=0:num_P-1
+    delete(model, abs_var[i])
+  end
   vcount = Dict([i=>round(Int, value(unique[i])) for i in feasible])
+  d_2 = -length(feasible) * log(length(feasible))
   return vcount, [d_1, d_2]
 end
 
@@ -193,6 +203,7 @@ function master_problem(num_P, Γ, K, L, pra_dict)
   @variable(model, y[i=1:2])
   @variable(model, z[i=P])
   @variable(model, T)
+  @variable(model, t[i=P])
   @variable(model, r)
 
   # define complicating constraints
@@ -202,7 +213,8 @@ function master_problem(num_P, Γ, K, L, pra_dict)
   @constraint(model, c3, y[2] == T - d_2) 
   @constraint(model, c5[i=P], z[i] == sum(A[1][i] * δ[1]))
   @constraint(model, c6, [y[1], y[2], r] in RotatedSecondOrderCone())
-  @constraint(model, c7[i=P], z[i] >= T)
+  @constraint(model, c7[i=P], [z[i],1,t[i]] in JuMP.MOI.ExponentialCone())
+  @constraint(model, c8, sum(t) == T)
 
   @objective(model, Max, r)
   optimize!(model)
@@ -228,11 +240,11 @@ function master_problem(num_P, Γ, K, L, pra_dict)
     obj_expr = -π_0 + sum(_vcount_s[i] * (π_1 + β[i]) for i=P)
     if !sub_problem(submodel, obj_expr, x)
       println("NSWP objective: ", objective_value(model))
-      println("Minprob: ", value(T))
+      println("SumLog: ", value(T))
       println("Number of transplants: ", value(y[1]) + d_1)
       solutions = length(findall(>(0), value.(δ)))
       etime = time() - stime
-      stats = Dict("Minprob"=>value(T), "Minprob:NSWP"=>objective_value(model), "Minprob:transplants"=>value(y[1] + d_1), "Minprob:solutions"=>solutions, "Minprob:time"=>etime)
+      stats = Dict("SumLog"=>value(T), "SumLog:NSWP"=>objective_value(model), "SumLog:transplants"=>value(y[1] + d_1), "SumLog:solutions"=>solutions, "SumLog:time"=>etime)
       return stats
       break
     end
@@ -250,6 +262,7 @@ function master_problem(num_P, Γ, K, L, pra_dict)
     end
     set_normalized_coefficient(c1, δ[end], 1)
     set_normalized_coefficient(c2, δ[end], -sum(vcount_s[i] for i=P))
+    set_normalized_coefficient(c4, δ[end], -sum(vcount_s[i] for i=P))
 
     # reoptimize
     optimize!(model)

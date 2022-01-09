@@ -139,6 +139,10 @@ function sub_problem(model, obj_expr, x)
 end
 
 
+function nadir_point(model, δ)
+end
+
+
 function master_problem(num_P, Γ, K, L, pra_dict)
   # start time
   stime = time() 
@@ -244,8 +248,9 @@ function master_problem(num_P, Γ, K, L, pra_dict)
       println("NSWP objective: ", objective_value(model))
       println("L1: ", value(T))
       println("Number of transplants: ", value(y[1]) + d_1)
+      solutions = length(findall(>(0), value.(δ)))
       etime = time() - stime
-      stats = Dict("L1"=>value(T), "L1:NSWP"=>objective_value(model), "L1:transplants"=>value(y[1] + d_1), "L1:time"=>etime)
+      stats = Dict("L1"=>value(T), "L1:NSWP"=>objective_value(model), "L1:transplants"=>value(y[1] + d_1), "L1:solutions"=>solutions, "L1:time"=>etime)
       return stats
       break
     end

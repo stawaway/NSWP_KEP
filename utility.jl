@@ -84,13 +84,13 @@ end
 
 
 function columngen_params(model, unique, num_P)
+  @variable(model, z)
+  @variable(model, abs_var[i=0:num_P-1])
+  @constraint(model, num_P * z == objective_function(model))
+  @constraint(model, abs_cons[i=0:num_P-1], abs_var[i] == constraint_object(unique[i]).func - z)
   optimize!(model)
 
-  if termination_status(model) == MOI.OPTIMAL || (termination_status(model) == MOI.TIME_LIMIT && has_values(model)) 
-    # obtain the nadir d_2
-    d_2 = 0.0 
-    d_1 = 0.0
-  else
+  if termination_status(model) != MOI.OPTIMAL && (termination_status(model) != MOI.TIME_LIMIT || !has_values(model)) 
     error("The model was not solved correctly")
   end
 
@@ -106,8 +106,13 @@ function columngen_params(model, unique, num_P)
     end
   end
 
+  delete(model, z)
+  unregister(model, :z)
+  for i=0:num_P-1
+    delete(model, abs_var[i])
+  end
   vcount = Dict([i=>round(Int, value(unique[i])) for i in feasible])
-  return vcount, [d_1, d_2]
+  return vcount 
 end
 
 
@@ -141,28 +146,28 @@ function master_problem(num_P, Γ, K, L, pra_dict)
   end
   n = length(Γ)
   
-  # Submodel i.e Subproblem
-  submodel = Model(Mosek.Optimizer)
-  set_optimizer_attribute(submodel, "MSK_IPAR_LOG", 0)
+  # Model i.e Subproblem
+  model = Model(Mosek.Optimizer)
+  set_optimizer_attribute(model, "MSK_IPAR_LOG", 0)
 
-  @variable(submodel, x[l=0:n-2,(i,j)=Γ[l][2],K[i,j,l]], Bin)
+  @variable(model, x[l=0:n-2,(i,j)=Γ[l][2],K[i,j,l]], Bin)
 
-  @constraint(submodel, unique[i=0:n-1], sum(x[l,(j,i),k] for l=0:i, (j,v) in Γ[l][2], k in K[j,v,l] if v == i) <= 1)
-  @constraint(submodel, flow[l=0:n-2,i=l+1:n-1,k=1:L-1], sum(x[l,(j,i),k] for (j,v) in Γ[l][2] if v == i && k in K[j,i,l]) == sum(x[l,(i,j),k+1] for (v,j) in Γ[l][2] if v == i && (k+1) in K[i,j,l]))
+  @constraint(model, unique[i=0:n-1], sum(x[l,(j,i),k] for l=0:i, (j,v) in Γ[l][2], k in K[j,v,l] if v == i) <= 1)
+  @constraint(model, flow[l=0:n-2,i=l+1:n-1,k=1:L-1], sum(x[l,(j,i),k] for (j,v) in Γ[l][2] if v == i && k in K[j,i,l]) == sum(x[l,(i,j),k+1] for (v,j) in Γ[l][2] if v == i && (k+1) in K[i,j,l]))
   f_1 = sum(constraint_object(unique[i]).func for i=0:num_P-1)
-  @objective(submodel, Max, f_1)
-
+  @objective(model, Max, f_1)
+  
   # obtain the first solution and the nadir point
-  vcount, nadir = columngen_params(submodel, unique, num_P)
-  d_1, d_2 = nadir
+  vcount = columngen_params(model, unique, num_P)
+  transplants = objective_value(model)
   P = Set{Int64}(keys(vcount))
 
-  # delete the constraints that will not be used from the submodel
+  # delete the constraints that will not be used from the model
   for i=0:num_P-1
     if haskey(vcount, i)
       continue
     else
-      delete(submodel, unique[i])
+      delete(model, unique[i])
     end
   end
 
@@ -172,88 +177,55 @@ function master_problem(num_P, Γ, K, L, pra_dict)
     else
       for (i,j) in Γ[l][2]
         if !isempty(K[i,j,l]) 
-          delete(submodel, x[l,(i,j),K[i,j,l]])
+          delete(model, x[l,(i,j),K[i,j,l]])
         end
       end
     end
     
     for i=l+1:n-1
       for k=1:L-1
-        delete(submodel, flow[l,i,k])
+        delete(model, flow[l,i,k])
       end
     end
   end
   num_P = length(keys(vcount))
 
-  # Main model i.e. Master Problem
-  model = Model(Mosek.Optimizer) 
-  set_optimizer_attribute(model, "MSK_IPAR_LOG", 0)
-  # define variables
-  δ = [@variable(model, lower_bound=0)]
-  @variable(model, y[i=1:2])
-  @variable(model, z[i=P])
-  @variable(model, T)
-  @variable(model, r)
+  # store solutions
+  z = Dict(i=>vcount[i] for i=P)
+  solutions = 1
 
-  # define complicating constraints
-  A = [Dict(i=>abs(vcount[i]) for i=P)]
-  @constraint(model, c1, sum(δ) == 1)
-  @constraint(model, c2, y[1] == sum(A[1][i] * δ[1] for i=P) - d_1) 
-  @constraint(model, c3, y[2] == T - d_2) 
-  @constraint(model, c5[i=P], z[i] == sum(A[1][i] * δ[1]))
-  @constraint(model, c6, [y[1], y[2], r] in RotatedSecondOrderCone())
-  @constraint(model, c7[i=P], z[i] >= T)
-
-  @objective(model, Max, r)
-  optimize!(model)
-
-  status = termination_status(model)
-  if status == MOI.OPTIMAL || status == MOI.SLOW_PROGRESS 
-    opt_dist = value.(δ)
-    L1 = objective_value(model)
-  elseif termination_status(model) == MOI.TIME_LIMIT
-    error("Time limit was reached")
-  else
-    println(termination_status(model))
-    error("The model could not be solved correctly")
-  end
-
+  _unique = Dict(i=>constraint_object(unique[i]).func for i=P)
+  # add solution cuts and reoptimize
   while true
-    π_0 = dual(c1)
-    π_1 = dual(c2)
-    π_2 = dual(c3)
-    β = dual.(c5)
-
-    _vcount_s = Dict([i=>constraint_object(unique[i]).func for i=P])
-    obj_expr = -π_0 + sum(_vcount_s[i] * (π_1 + β[i]) for i=P)
-    if !sub_problem(submodel, obj_expr, x)
-      println("NSWP objective: ", objective_value(model))
-      println("Minprob: ", value(T))
-      println("Number of transplants: ", value(y[1]) + d_1)
-      solutions = length(findall(>(0), value.(δ)))
-      etime = time() - stime
-      stats = Dict("Minprob"=>value(T), "Minprob:NSWP"=>objective_value(model), "Minprob:transplants"=>value(y[1] + d_1), "Minprob:solutions"=>solutions, "Minprob:time"=>etime)
-      return stats
-      break
-    end
-    
-    # count vertices in solutions
-    vcount_s = Dict([i=>round(Int, value(constraint_object(unique[i]).func)) for i=P])
-
-    # add new coefficient and column
-    push!(δ, @variable(model, lower_bound=0)) 
-    push!(A, vcount_s)
-
-    # modify the constraints by adding the new column
-    for i=P
-      set_normalized_coefficient(c5[i], δ[end], -vcount_s[i])
-    end
-    set_normalized_coefficient(c1, δ[end], 1)
-    set_normalized_coefficient(c2, δ[end], -sum(vcount_s[i] for i=P))
-
-    # reoptimize
+    @constraint(model, sum(value(unique[i]) > 0.5 ? 1.0 - _unique[i] : _unique[i] for i=P) >= 1)
     optimize!(model)
+    
+    status = termination_status(model)
+    if status == MOI.OPTIMAL
+      for i=P
+        z[i] += abs(value(_unique[i]))
+      end
+      solutions += 1
+    elseif status == MOI.INFEASIBLE
+      break
+    elseif status == MOI.TIME_LIMIT
+      error("The solver could not terminate in the allocated time")
+    else
+      error("The model could not be solved")
+    end
   end
+     
+  z0 = sum(values(z)) / solutions / num_P
+  L1 = sum(abs(z[i] / solutions - z0) for i=P)
+  Minprob = minimum(z[i] for i=P) / solutions
+  SumLog = sum(log(z[i]) for i=P)
+  println("Number of transplants: ", transplants)
+  println("L1: ", L1)
+  println("Minprob: ", Minprob)
+  println("SumLog: ", SumLog)
+  etime = time() - stime
+  stats = Dict("Utility:L1"=>L1, "Utility:Minprob"=>Minprob, "Utility:SumLog"=>SumLog, "Utility:transplants"=>transplants, "Utility:solutions"=>solutions, "Utility:time"=>etime)
+  return stats
 end
 
 
