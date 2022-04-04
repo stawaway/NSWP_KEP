@@ -85,13 +85,9 @@ end
 
 function columngen_params(model, unique, num_P)
   optimize!(model)
-
-  if termination_status(model) == MOI.OPTIMAL || (termination_status(model) == MOI.TIME_LIMIT && has_values(model)) 
-    # obtain the nadir d_2
-    d_2 = 0.0 
-    d_1 = 0.0
-  else
-    error("The model was not solved correctly")
+  
+  if termination_status(model) != MOI.OPTIMAL
+    error("Could not obtain the first solution for the model")
   end
 
   feasible = Set{Int64}()
@@ -107,26 +103,160 @@ function columngen_params(model, unique, num_P)
   end
 
   vcount = Dict([i=>round(Int, value(unique[i])) for i in feasible])
-  return vcount, [d_1, d_2]
+  return vcount
 end
 
 
-function sub_problem(model, obj_expr, x)
-  @objective(model, Min, obj_expr)
+function nadir_point(model, submodel, δ, A)
+  T, x = model[:T], submodel[:x]
+  unique,con1,con3 = submodel[:unique], model[:c1], model[:c5]
+  P = Set{Int64}(keys(A[1]))
+  d_1, d_2 = 0.0, 0.0
+  i_1, i_2 = 0.0, 0.0
+
+  @objective(model, Max, sum(A[j][i] * δ[j] for j in 1:length(A) for i=P))
+  optimize!(model)
+  
+  status = termination_status(model)
+  if status == MOI.OPTIMAL
+    i_1 = objective_value(model)
+    @constraint(model, opt, objective_function(model) == objective_value(model))
+  else
+    error("Could not find the nadir point")
+  end
+
+  # find the point d_2
+  @objective(model, Max, T)
   optimize!(model)
 
-  if termination_status(model) == MOI.OPTIMAL
-    ζ = objective_value(model)
-    if ζ > -1e-12
-      return false 
-    else
-      return true 
-    end
-  elseif termination_status(model) == MOI.TIME_LIMIT
-    error("The time limit was reached for the subproblem")
+  status = termination_status(model)
+  if status == MOI.OPTIMAL
   else
-    error("The subproblem could not be solved correctly")
-  end 
+    error("Could not find the nadir point")
+  end
+
+  while true
+    λ1 = dual(con1)
+    λ3 = dual.(con3)
+    λ4 = dual(opt)
+
+    _vcount_s = Dict([i=>constraint_object(unique[i]).func for i=P])
+    expr = -λ1 + sum((λ3[i] - λ4) * _vcount_s[i] for i=P)
+    
+    @objective(submodel, Min, expr)
+    optimize!(submodel)
+
+    if -1e-6 <= value(expr) + dual(LowerBoundRef(δ[end])) <= 1e-6 || dual_status(model) != MOI.FEASIBLE_POINT
+      d_2 = objective_value(model)
+      break
+    end
+    
+    # count vertices in solutions
+    vcount_s = Dict([i=>round(Int, value(constraint_object(unique[i]).func)) for i=P])
+
+    # add new coefficient and column
+    push!(δ, @variable(model, lower_bound=0)) 
+    push!(A, vcount_s)
+
+    # modify the constraints by adding the new column
+    for i=P
+      set_normalized_coefficient(con3[i], δ[end], -vcount_s[i])
+    end
+    set_normalized_coefficient(con1, δ[end], 1)
+
+    # reoptimize
+    optimize!(model)
+  end
+
+  delete(model, opt)
+  unregister(model, :opt)
+  optimize!(model)
+  
+  status = termination_status(model)
+  if status == MOI.OPTIMAL
+  else
+    error("Could not find the nadir point")
+  end
+    
+  while true
+    λ1 = dual(con1)
+    λ3 = dual.(con3)
+
+    _vcount_s = Dict([i=>constraint_object(unique[i]).func for i=P])
+    expr = -λ1 + sum((λ3[i]) * _vcount_s[i] for i=P)
+    
+    @objective(submodel, Min, expr)
+    optimize!(submodel)
+
+    if -1e-6 <= value(expr) - dual(LowerBoundRef(δ[end])) <= 1e-6 || dual_status(model) != MOI.FEASIBLE_POINT
+      i_2 = objective_value(model)
+      @constraint(model, opt, objective_function(model) == objective_value(model))
+      break
+    end
+    
+    # count vertices in solutions
+    vcount_s = Dict([i=>round(Int, value(constraint_object(unique[i]).func)) for i=P])
+
+    # add new coefficient and column
+    push!(δ, @variable(model, lower_bound=0)) 
+    push!(A, vcount_s)
+
+    # modify the constraints by adding the new column
+    for i=P
+      set_normalized_coefficient(con3[i], δ[end], -vcount_s[i])
+    end
+    set_normalized_coefficient(con1, δ[end], 1)
+   
+    # reoptimize
+    optimize!(model)
+  end
+
+  # find the point d_1
+  @objective(model, Max, sum(A[j][i] * δ[j] for j=1:length(A) for i=P))
+  optimize!(model)
+  
+  status = termination_status(model)
+  if status == MOI.OPTIMAL
+  else
+    error("Could not find the nadir point")
+  end
+ 
+  while true
+    λ1 = dual(con1)
+    λ3 = dual.(con3)
+
+    _vcount_s = Dict([i=>constraint_object(unique[i]).func for i=P])
+    expr = -λ1 + sum((λ3[i] - 1.0) * _vcount_s[i] for i=P)
+    
+    @objective(submodel, Min, expr)
+    optimize!(submodel)
+ 
+    if -1e-6 <= value(expr) - dual(LowerBoundRef(δ[end])) <= 1e-6 || dual_status(model) != MOI.FEASIBLE_POINT
+      d_1 = objective_value(model)
+      break
+    end
+   
+    # count vertices in solutions
+    vcount_s = Dict([i=>round(Int, value(constraint_object(unique[i]).func)) for i=P])
+
+    # add new coefficient and column
+    push!(δ, @variable(model, lower_bound=0)) 
+    push!(A, vcount_s)
+
+    # modify the constraints by adding the new column
+    for i=P
+      set_normalized_coefficient(con3[i], δ[end], -vcount_s[i])
+    end
+    set_normalized_coefficient(con1, δ[end], 1)
+    set_objective_coefficient(model, δ[end], sum(vcount_s[i] for i=P))
+
+   # reoptimize
+   optimize!(model)
+  end
+
+  delete(model, opt)
+  unregister(model, :opt)
+  return (d_1, d_2), (i_1, i_2)
 end
 
 
@@ -153,8 +283,7 @@ function master_problem(num_P, Γ, K, L, pra_dict)
   @objective(submodel, Max, f_1)
 
   # obtain the first solution and the nadir point
-  vcount, nadir = columngen_params(submodel, unique, num_P)
-  d_1, d_2 = nadir
+  vcount = columngen_params(submodel, unique, num_P)
   P = Set{Int64}(keys(vcount))
 
   # delete the constraints that will not be used from the submodel
@@ -188,22 +317,31 @@ function master_problem(num_P, Γ, K, L, pra_dict)
   # Main model i.e. Master Problem
   model = Model(Mosek.Optimizer) 
   set_optimizer_attribute(model, "MSK_IPAR_LOG", 0)
+
   # define variables
   δ = [@variable(model, lower_bound=0)]
   @variable(model, y[i=1:2])
   @variable(model, z[i=P])
   @variable(model, T)
-  @variable(model, r)
 
   # define complicating constraints
   A = [Dict(i=>abs(vcount[i]) for i=P)]
   @constraint(model, c1, sum(δ) == 1)
-  @constraint(model, c2, y[1] == sum(A[1][i] * δ[1] for i=P) - d_1) 
-  @constraint(model, c3, y[2] == T - d_2) 
-  @constraint(model, c5[i=P], z[i] == sum(A[1][i] * δ[1]))
-  @constraint(model, c6, [y[1], y[2], r] in RotatedSecondOrderCone())
+  @constraint(model, c5[i=P], z[i] == A[1][i] * δ[1])
   @constraint(model, c7[i=P], z[i] >= T)
 
+  nadir, ideal = nadir_point(model, submodel, δ, A)
+  d_1, d_2 = nadir
+  println("The nadir is: ", (d_1, d_2))
+  i_1, i_2  = ideal
+  println("The ideal is: ", (i_1, i_2))
+  @variable(model, r)
+  
+  # define complicating constraints
+  @constraint(model, c2, y[1] == sum(A[j][i] * δ[j] for j=1:length(A) for i=P) - d_1) 
+  @constraint(model, c3, y[2] == T - d_2) 
+  @constraint(model, c6, [y[1], y[2], r] in RotatedSecondOrderCone())
+  
   @objective(model, Max, r)
   optimize!(model)
 
@@ -226,13 +364,24 @@ function master_problem(num_P, Γ, K, L, pra_dict)
 
     _vcount_s = Dict([i=>constraint_object(unique[i]).func for i=P])
     obj_expr = -π_0 + sum(_vcount_s[i] * (π_1 + β[i]) for i=P)
-    if !sub_problem(submodel, obj_expr, x)
+    
+    @objective(submodel, Min, obj_expr)
+    optimize!(submodel)
+
+    if -1e-8 <= value(obj_expr) - dual(LowerBoundRef(δ[end])) <= 1e-8 || dual_status(model) != MOI.FEASIBLE_POINT
       println("NSWP objective: ", objective_value(model))
       println("Minprob: ", value(T))
       println("Number of transplants: ", value(y[1]) + d_1)
       solutions = length(findall(>(0), value.(δ)))
+      POF = (i_1 - value(y[1] + d_1)) / i_1
+      POU = i_2 == 0.0 ? Inf : (-value(T) + i_2) / i_2
+      println("POF: ", POF)
+      println("POU: ", POU, "\n")
       etime = time() - stime
-      stats = Dict("Minprob"=>value(T), "Minprob:NSWP"=>objective_value(model), "Minprob:transplants"=>value(y[1] + d_1), "Minprob:solutions"=>solutions, "Minprob:time"=>etime)
+      stats = Dict("Minprob"=>value(T), "Minprob:NSWP"=>objective_value(model), "Minprob:transplants"=>value(y[1] + d_1),
+		   "Minprob:ideal"=>ideal, "Minprob:nadir"=>nadir,
+		   "Minprob:POF"=>POF, "Minprob:POU"=>POU,
+		   "Minprob:solutions"=>solutions, "Minprob:time"=>etime)
       return stats
       break
     end
@@ -270,6 +419,7 @@ function main()
   filename = split(path, '/')[end]
 
   stats = master_problem(num_P, Γ, K, L, pra_dict)
+  stats["|P|"], stats["|N|"] = num_P, length(G[1]) - num_P
 
   if !isfile("$filename.jld2") 
     save("$filename.jld2", stats)
