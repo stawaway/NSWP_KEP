@@ -236,12 +236,14 @@ function generate_column_master!(model, submodel_fn, update_constr_fn, A)
         end
 
         # update the constraints using the new set of solutions
-        if sol != A[end]
+        if !(sol in A)
             push!(A, sol)
             update_constr_fn(model, sol)
 
             optimize!(model)
             optimizer_status(model)
+        else
+            break
         end
     end
 
