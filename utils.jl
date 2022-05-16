@@ -118,8 +118,9 @@ function getarcs(G; fn = (x, y) -> true)
 end
 
 
-function read_input(filename)
-    cmd = pipeline(`python3 -m kidney_solver.utils.convert`, stdin=filename * ".wmd")
+function read_input(dir, filename)
+    path = joinpath(dir, filename) 
+    cmd = pipeline(`python3 -m kidney_solver.utils.convert`, stdin=path * ".wmd")
     lines = readlines(cmd)
     sep = findall(x->x!="-1\t-1\t-1", lines)
     lines = lines[sep]
@@ -128,7 +129,7 @@ function read_input(filename)
     numP, numA = popfirst!(lines)
     numN, numE = splice!(lines, numA + 1)
 
-    pra_dict = read_data(filename * ".dat")
+    pra_dict = read_data(path * ".dat")
 
     G = Graph(numN, numP)
     
