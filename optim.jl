@@ -190,31 +190,31 @@ function feasible_subgraph!(submodel, G, d, K, K_, L)
     end
 
     # delete constraints that will not be used
-    for i = 1:graphsize(G)
-        if !(i in feasible) && i <= graphsize(G; P = false)
-            delete(submodel, unique[i])
-        end
-
-        if !(i in feasible) && i > graphsize(G; P = false)
-            delete(submodel, capacity[i])
-
-            for k = 1:L -1
-                delete(submodel, chain[i, k])
-            end
-        end
-
-        l = i
-        if l <= graphsize(G; P = false)
-            continue
-        end
-        for i = l + 1:graphsize(G)
-            if !(l in feasible) || !(i in feasible)
-                for k = 1:L - 1
-                    delete(submodel, flow[l, i, k])
-                end
-            end
-        end
-    end
+#    for i = 1:graphsize(G)
+#        if !(i in feasible) && i <= graphsize(G; P = false)
+#            delete(submodel, unique[i])
+#        end
+#
+#        if !(i in feasible) && i > graphsize(G; P = false)
+#            delete(submodel, capacity[i])
+#
+#            for k = 1:L -1
+#                delete(submodel, chain[i, k])
+#            end
+#        end
+#
+#        l = i
+#        if l <= graphsize(G; P = false)
+#            continue
+#        end
+#        for i = l + 1:graphsize(G)
+#            if !(l in feasible) || !(i in feasible)
+#                for k = 1:L - 1
+#                    delete(submodel, flow[l, i, k])
+#                end
+#            end
+#        end
+#    end
 
     submodel[:feasible] = filter(x -> x > graphsize(G; P = false), feasible)
     return feasible
