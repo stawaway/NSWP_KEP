@@ -258,7 +258,7 @@ end
 
 function save_HPIEF(submodel, fid, submodel_path)
     write_to_file(submodel, submodel_path)
-    fid["models/submodel"] = submodel_path
+    fid["models/submodel/path"] = submodel_path
     fid["stats/feasible"] = submodel[:feasible]
     fid["stats/sensitized"] = submodel[:sensitized]
 end
@@ -274,3 +274,24 @@ function load_HPIEF(filename, feasible, sensitized)
 
     return submodel
 end
+
+
+function save_model(model, fid, module_name, model_path)
+    write_to_file(model, model_path)
+
+    # save names
+    fid["models/model/path/$module_name"] = model_path
+    fid["models/model/solutions/$module_name"] = model[:A]
+end
+
+
+function load_model(filename, submodel, A)
+    model = read_from_file(filename)
+
+    # register necessary names
+    model[:A] = A
+    model[:submodel] = submodel
+
+    return model
+end
+

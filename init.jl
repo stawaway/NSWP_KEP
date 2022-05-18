@@ -91,7 +91,7 @@ macro skip_setup()
         L = stats_group["L"]
 
         # obtain the submodel
-        submodel = load_HPIEF(fid["models/submodel"], fid["stats/feasible"], fid["stats/sensitized"])
+        submodel = load_HPIEF(fid["models/submodel/path"], fid["stats/feasible"], fid["stats/sensitized"])
         set_optimizer(submodel, Mosek.Optimizer)
         set_optimizer_attribute(submodel, "MSK_IPAR_LOG", 0)
     end
@@ -107,10 +107,10 @@ function module_specific!(fid, module_name, submodel)
     build_master_problem!(model, ideal, nadir)
 
     # save stats
-    fid["stats/solutions/$module_name"] = init_sol
+    fid["models/submodel/solutions/$module_name"] = init_sol
 
     # save model
-    # TODO
+    save_model(model, fid, module_name, joinpath(model_path, nswp_module, filename * ".mof.json"))
 end
 
 
