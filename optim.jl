@@ -222,7 +222,7 @@ end
 
 
 function generate_column_master!(model, submodel_fn, update_constr_fn, A)
-    submodel = model[:submodel] # TODO add function to retrieve solution instead
+    submodel = model[:submodel]
     optimize!(model)
     optimizer_status(model)
 
@@ -230,7 +230,7 @@ function generate_column_master!(model, submodel_fn, update_constr_fn, A)
         # solve the submodel
         # add the solution to the Matrix A if it exists
         if ! submodel_fn(model)
-            sol = Dict(i => round(value(submodel[:capacity][i])) for i = submodel[:feasible])
+            sol = Dict(i => round(value(constraint_by_name(submodel, "capacity[$i]"))) for i = submodel[:feasible])
         else
             break
         end
@@ -256,4 +256,21 @@ function solve!(model, submodel_fn, update_constr_fn)
 end
 
 
-#end
+function save_HPIEF(submodel, fid, submodel_path)
+    write_to_file(submodel, submodel_path)
+    fid["models/submodel"] = submodel_path
+    fid["stats/feasible"] = submodel[:feasible]
+    fid["stats/sensitized"] = submodel[:sensitized]
+end
+
+
+function load_HPIEF(filename, feasible, sensitized)
+    # load the submodel
+    submodel = read_from_file(filename)
+
+    # register associated data to the submodel
+    submodel[:feasible] = feasible
+    submodel[:sensitized] = sensitized
+
+    return submodel
+end

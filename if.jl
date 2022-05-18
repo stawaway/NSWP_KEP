@@ -8,13 +8,14 @@ export build_master_problem!, build_linear_combination
 function solve_subproblem!(model)
     submodel = model[:submodel]
     feasible = submodel[:feasible]
-    α0 = dual(model[:α0])
-    α1 = dual(model[:α1])
-    α3 = dual(model[:α3])
-    β = dual.(model[:β])
+    α0 = dual(constraint_by_name(model, "α0"))
+    α1 = dual(constraint_by_name(model, "α1"))
+    α3 = dual(constraint_by_name(model, "α3"))
+    β = Dict(i => dual(constraint_by_name(model, "β[$i]")) for i = feasible)
 
     # set the new objective
-    pair_count = Dict(i => constraint_object(submodel[:capacity][i]).func for i = feasible)
+    constraints = Dict(i => constraint_by_name(submodel, "capacity[$i]") for i = feasible) 
+    pair_count = Dict(i => constraint_object(constraints[i]).func for i = feasible)
     @objective(submodel, Min, -α0 + sum((α1 + α3 + β[i]) *  pair_count[i] for i = feasible))
     optimize!(submodel)
     optimizer_status(submodel)
@@ -28,36 +29,40 @@ end
 
 
 function update_constr!(model, new_sol)
-    α0, α1, α3, β, δ = model[:α0], model[:α1], model[:α3], model[:β], model[:δ]
-    # modify the constraints by adding the new column
     P_ = keys(new_sol)
-    push!(δ, @variable(model, lower_bound = 0.0))
+    α0 = constraint_by_name(model, "α0")
+    α1 = constraint_by_name(model, "α1")
+    α3 = constraint_by_name(model, "α3")
+    β = Dict(i => constraint_by_name(model, "β[$i]") for i = P_)
+    A = model[:A]
+    
+    # modify the constraints by adding the new column
+    δ = @variable(model, lower_bound = 0.0, base_name = "δ[$(length(A) + 1)]")
     for i = P_
-        set_normalized_coefficient(β[i], δ[end], -new_sol[i])
+        set_normalized_coefficient(β[i], δ, -new_sol[i])
     end
-    set_normalized_coefficient(α0, δ[end], 1)
-    set_normalized_coefficient(α1, δ[end], -sum(new_sol[i] for i = P_))
-    set_normalized_coefficient(α3, δ[end], -sum(new_sol[i] for i = P_))
+    set_normalized_coefficient(α0, δ, 1)
+    set_normalized_coefficient(α1, δ, -sum(new_sol[i] for i = P_))
+    set_normalized_coefficient(α3, δ, -sum(new_sol[i] for i = P_))
 end
 
 
 function init(submodel)
-    sol = Dict(i => round(value(submodel[:capacity][i])) for i = submodel[:feasible])
+    sol = Dict(i => (round ∘ value ∘ constraint_by_name)(submodel, "capacity[$i]") for i = submodel[:feasible]) 
     return sol
 end
 
 
 function fairness_objective!(model)
-    return @expression(model, -1.0 * model[:T]) 
+    return @expression(model, -1.0 * variable_by_name(model, "T")) 
 end
 
 
 function reference_point!(model, submodel, A)
-    y = model[:y]
-    δ = model[:δ]
+    y = variable_by_name(model, "y[1]")
 
     # compute i1
-    f1 = 1.0 * y[1]
+    f1 = 1.0 * y
     optimize!(submodel)
     optimizer_status(submodel)
     i1 = objective_value(submodel)
@@ -78,7 +83,7 @@ function reference_point!(model, submodel, A)
 
     # add temp constraint and optimize to get d1
     temp = @constraint(model, f2 == i2)
-    @objective(model, Max, 1.0 * y[1])
+    @objective(model, Max, 1.0 * y)
     generate_column_master!(model, solve_subproblem!, update_constr!, A)
     d1 = objective_value(model)
     delete(model, temp)
@@ -91,7 +96,6 @@ end
 
 
 function partial_build_master_problem(submodel, init_sol)
-    x = submodel[:x]
     P_ = submodel[:feasible]
     
     # Main model i.e. Master Problem
@@ -100,8 +104,7 @@ function partial_build_master_problem(submodel, init_sol)
     model[:submodel] = submodel
 
     # define variables
-    δ = [@variable(model, lower_bound=0)]
-    model[:δ] = δ
+    δ = [@variable(model, lower_bound=0, base_name = "δ[$j]") for j = 1:length(init_sol)]
     @variable(model, y[i = 1:2])
     @variable(model, z0)
     @variable(model, z[i = P_])
@@ -127,12 +130,15 @@ end
 function build_master_problem!(model, ideal, nadir)
     i1, i2 = ideal
     d1, d2 = nadir
-    y, α1, T = model[:y], model[:α1], model[:T]
+    y1 = variable_by_name(model, "y[1]")
+    y2 = variable_by_name(model, "y[2]")
+    α1 = constraint_by_name(model, "α1")
+    T = variable_by_name(model, "T")
 
-    set_normalized_rhs(model[:α1], -d1)
+    set_normalized_rhs(α1, -d1)
     @variable(model, r)
-    @constraint(model, α2, y[2] == -T - d2) 
-    @constraint(model, u, [y[1], y[2], r] in RotatedSecondOrderCone())
+    @constraint(model, α2, y2 == -T - d2) 
+    @constraint(model, u, [y1, y2, r] in RotatedSecondOrderCone())
 
     @objective(model, Max, r)
 end

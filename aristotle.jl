@@ -8,11 +8,11 @@ export build_master_problem!, build_linear_combination
 function solve_subproblem!(model)
     submodel = model[:submodel]
     feasible = submodel[:feasible]
-    α0 = dual(model[:α0])
-    α1 = dual(model[:α1])
+    α0 = dual(constraint_by_name(model, "α0"))
+    α1 = dual(constraint_by_name(model, "α1"))
 
     # set the new objective
-    pair_count = Dict(i => constraint_object(submodel[:capacity][i]).func for i = feasible)
+    pair_count = Dict(i => constraint_object(constraint_by_name(submodel, "capacity[$i]")).func for i = feasible)
     @objective(submodel, Min, -α0 + sum(α1 *  pair_count[i] for i = feasible))
     optimize!(submodel)
     optimizer_status(submodel)
@@ -26,37 +26,40 @@ end
 
 
 function update_constr!(model, new_sol)
-    α0, α1, δ = model[:α0], model[:α1], model[:δ]
-    # modify the constraints by adding the new column
     P_ = keys(new_sol)
-    push!(δ, @variable(model, lower_bound = 0.0))
-    set_normalized_coefficient(α0, δ[end], 1)
-    set_normalized_coefficient(α1, δ[end], -sum(new_sol[i] for i = P_))
+    α0 = constraint_by_name(model, "α0")
+    α1 = constraint_by_name(model, "α1")
+    A = model[:A]
+
+    # modify the constraints by adding the new column
+    δ = @variable(model, lower_bound = 0.0, base_name = "δ[$(length(A) + 1)]")
+    set_normalized_coefficient(α0, δ, 1)
+    set_normalized_coefficient(α1, δ, -sum(new_sol[i] for i = P_))
 end
 
 
 function init(submodel)
-    sol = Dict(i => round(value(submodel[:capacity][i])) for i = submodel[:feasible])
+    sol = Dict(i => round(value(constraint_by_name(submodel, "capacity[$i]"))) for i = submodel[:feasible])
     return sol
 end
 
 
 function fairness_objective!(model)
     A = model[:A]
-    δ = model[:δ]
     feasible = model[:submodel][:feasible]
     sensitized = model[:submodel][:sensitized]
 
-    return @expression(model, sum(A[j][i] * δ[j] for j = 1:length(A) for i = intersect(feasible, sensitized))) 
+    return @expression(model, 
+        sum(A[j][i] * variable_by_name(model, "δ[$j]") for j = 1:length(A) 
+        for i = intersect(feasible, sensitized))) 
 end
 
 
 function reference_point!(model, submodel, A)
-    y = model[:y]
-    δ = model[:δ]
+    y1 = variable_by_name(model, "y[1]")
 
     # compute i1
-    f1 = 1.0 * y[1]
+    f1 = 1.0 * y1
     optimize!(submodel)
     optimizer_status(submodel)
     i1 = objective_value(submodel)
@@ -77,7 +80,7 @@ function reference_point!(model, submodel, A)
 
     # add temp constraint and optimize to get d1
     temp = @constraint(model, f2 == i2)
-    @objective(model, Max, 1.0 * y[1])
+    @objective(model, Max, 1.0 * y1)
     generate_column_master!(model, solve_subproblem!, update_constr!, A)
     d1 = objective_value(model)
     delete(model, temp)
@@ -90,7 +93,6 @@ end
 
 
 function partial_build_master_problem(submodel, init_sol)
-    x = submodel[:x]
     P_ = submodel[:feasible]
     
     # Main model i.e. Master Problem
@@ -99,7 +101,7 @@ function partial_build_master_problem(submodel, init_sol)
     model[:submodel] = submodel
 
     # define variables
-    δ = [@variable(model, lower_bound=0)]
+    δ = [@variable(model, lower_bound=0, base_name = "δ[1]")]
     model[:δ] = δ
     @variable(model, y[i = 1:2])
     @variable(model, z[i = P_])
@@ -119,15 +121,17 @@ end
 function build_master_problem!(model, ideal, nadir)
     i1, i2 = ideal
     d1, d2 = nadir
-    y, α1 = model[:y], model[:α1]
+    y1, y2 = variable_by_name(model, "y[1]"), variable_by_name(model, "y[2]")
+    α1 = constraint_by_name(model, "α1")
     P_H, P_ = model[:submodel][:sensitized], model[:submodel][:feasible]
-    A, δ = model[:A], model[:δ]
+    A = model[:A]
 
-    set_normalized_rhs(model[:α1], -d1)
+    set_normalized_rhs(α1, -d1)
     @variable(model, r)
 
-    @constraint(model, α2, y[2] == sum(A[j][i] * δ[j] for j = 1:length(A) for i = intersect(P_H, P_)) - d2) 
-    @constraint(model, u, [y[1], y[2], r] in RotatedSecondOrderCone())
+    @constraint(model, α2, y2 == sum(A[j][i] * variable_by_name(model, "δ[$j]") for j = 1:length(A)
+        for i = intersect(P_H, P_)) - d2) 
+    @constraint(model, u, [y1, y2, r] in RotatedSecondOrderCone())
 
     @objective(model, Max, r)
 end
