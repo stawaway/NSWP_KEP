@@ -52,7 +52,7 @@ eval(expr)
 
 
 macro setup()
-    ex = quote
+    ex1 = quote
         L = 3
         G = read_input(dir, filename)
         d = copy_shortest_paths(G)
@@ -72,12 +72,7 @@ macro setup()
         save_HPIEF(submodel, fid, joinpath(model_path, "submodels", filename * ".mof.json"))
     end
 
-    return esc(ex)
-end
-
-
-macro skip_setup()
-    ex = quote
+    ex2 = quote
         # retrieve groups
         stats_group = fid["stats"]
 
@@ -95,7 +90,12 @@ macro skip_setup()
         set_optimizer(submodel, Mosek.Optimizer)
         set_optimizer_attribute(submodel, "MSK_IPAR_LOG", 0)
     end
-    return esc(ex)
+
+    if ! skip
+        return esc(ex1)
+    else
+        return esc(ex2)
+    end
 end
 
 
@@ -125,11 +125,7 @@ function main()
     fid = jldopen(joinpath(exp_path, filename * ".mof.json"), "a+")
 
     # check if a file exists that stores the Graph and submodel information
-    if ! skip
-        @setup()
-    else
-        @skip_setup()
-    end
+    @setup()
 
     module_specific!(fid, nswp_module, submodel)
     close(fid)
