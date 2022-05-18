@@ -61,11 +61,6 @@ macro setup()
         feasible = feasible_subgraph!(submodel, G, d, K, K_, L)
         sensitized = submodel[:sensitized]
 
-        optimize!(submodel)
-        init_sol = init(submodel)
-        model = partial_build_master_problem(submodel, init_sol)
-        ideal, nadir = reference_point!(model, submodel, model[:A])
-
         # save stats
         fid["stats/G"] = G
         fid["stats/K"] = K
@@ -99,7 +94,6 @@ macro skip_setup()
         submodel = load_HPIEF(fid["models/submodel"], fid["stats/feasible"], fid["stats/sensitized"])
         set_optimizer(submodel, Mosek.Optimizer)
         set_optimizer_attribute(submodel, "MSK_IPAR_LOG", 0)
-        optimize!(submodel)
     end
     return esc(ex)
 end
