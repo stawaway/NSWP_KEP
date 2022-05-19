@@ -2,7 +2,7 @@ module IF
 using JuMP, MosekTools
 import ..Main: optimizer_status, generate_column_master!
 export solve_subproblem!, update_constr!, init, fairness_objective!, reference_point!, partial_build_master_problem
-export build_master_problem!, build_linear_combination
+export build_master_problem!, build_linear_combination!
 
 
 function solve_subproblem!(model)
@@ -144,39 +144,34 @@ function build_master_problem!(model, ideal, nadir)
 end
 
 
-function build_linear_combination(model, ideal, nadir)
-    """
-    x = submodel[:x]
-    P_ = submodel[:feasible]
-    
-    # Main model i.e. Master Problem
-    model = Model(Mosek.Optimizer) 
-    set_optimizer_attribute(model, "MSK_IPAR_LOG", 0)
-    model[:submodel] = submodel
+# TODO Use the partially built model or build from scratch ???
+function build_linear_combination!(model, ideal, nadir)
+    T = variable_by_name(model, "T")
+    y1 = variable_by_name(model, "y[1]")
+    A = model[:A]
 
-    # define variables
-    δ = [@variable(model, lower_bound=0)]
-    model[:δ] = δ
-    @variable(model, y[i = 1:2])
-    @variable(model, z0)
-    @variable(model, z[i = P_])
-    @variable(model, T)
-    @variable(model, t[i = P_])
+    # weight the objectives
+    i1, i2 = ideal
+    d1, d2 = nadir
+    if i1 != d1
+        if i2 == d2
+            w1 = 1.0
+            w2 = 0.0
+        else
+            w1 = 1.0 / abs(i1 - d1)
+            w2 = 1.0 / abs(i2 - d2)
+        end
+    else
+        if i2 != d2
+            w1 = 0.0
+            w2 = 1.0
+        else
+            w1 = 0.0
+            w2 = 0.0
+        end
+    end
 
-    # define basic constraints
-    A = [Dict(i => init_sol[i] for i = P_)]
-    model[:A] = A
-    @constraint(model, α0, sum(δ) == 1)
-    @constraint(model, α3, length(P_) * z0 == sum(A[1][i] * δ[1] for i = P_))
-    @constraint(model, β[i = P_], z[i] == sum(A[1][i] * δ[1]) - z0)
-    @constraint(model, w[i = P_], [t[i], z[i]] in SecondOrderCone())
-    @constraint(model, η, sum(t) == T)
-
-    # partially build complicating constraints
-    @constraint(model, α1, y[1] == sum(A[j][i] * δ[j] for j = 1:length(A) for i = P_)) 
-
-    return model
-    """
+    @objective(model, Max, w1 * y1 - w2 * T)
 end
 
 

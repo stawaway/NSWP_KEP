@@ -2,7 +2,7 @@ module Nash
 using JuMP, MosekTools
 import ..Main: optimizer_status, generate_column_master!
 export solve_subproblem!, update_constr!, init, fairness_objective!, reference_point!, partial_build_master_problem
-export build_master_problem!, build_linear_combination
+export build_master_problem!, build_linear_combination!
 
 
 function solve_subproblem!(model)
@@ -153,8 +153,33 @@ function build_master_problem!(model, ideal, nadir)
 end
 
 
-function build_linear_combination(model, ideal, nadir)
+function build_linear_combination!(model, ideal, nadir)
+    T = variable_by_name(model, "T")
+    y1 = variable_by_name(model, "y[1]")
+    A = model[:A]
 
+    # weight the objectives
+    i1, i2 = ideal
+    d1, d2 = nadir
+    if i1 != d1
+        if i2 == d2
+            w1 = 1.0
+            w2 = 0.0
+        else
+            w1 = 1.0 / abs(i1 - d1)
+            w2 = 1.0 / abs(i2 - d2)
+        end
+    else
+        if i2 != d2
+            w1 = 0.0
+            w2 = 1.0
+        else
+            w1 = 0.0
+            w2 = 0.0
+        end
+    end
+
+    @objective(model, Max, w1 * y1 + w2 * T)
 end
 
 

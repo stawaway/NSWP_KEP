@@ -104,13 +104,19 @@ function module_specific!(fid, module_name, submodel)
     init_sol = init(submodel)
     model = partial_build_master_problem(submodel, init_sol)
     ideal, nadir = reference_point!(model, submodel, model[:A])
+    
+    # build linear model and save it
+    build_linear_combination!(model, ideal, nadir)
+    save_linear(model, fid, module_name, joinpath(model_path, nswp_module, filename * "_linear.mof.json"))
+  
+    # build master problem and save it
     build_master_problem!(model, ideal, nadir)
+    save_model(model, fid, module_name, joinpath(model_path, nswp_module, filename * ".mof.json"))
 
     # save stats
     fid["models/submodel/solutions/$module_name"] = init_sol
-
-    # save model
-    save_model(model, fid, module_name, joinpath(model_path, nswp_module, filename * ".mof.json"))
+    fid["stats/ideal/$nswp_module"] = ideal
+    fid["stats/nadir/$nswp_module"] = nadir
 end
 
 

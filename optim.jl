@@ -276,6 +276,25 @@ function load_HPIEF(filename, feasible, sensitized)
 end
 
 
+function save_linear(model, fid, module_name, model_path)
+    write_to_file(model, model_path)
+
+    # save names
+    fid["models/linear/path/$module_name"] = model_path
+end
+
+
+function load_linear(filename, submodel, A)
+    model = read_from_file(filename)
+
+    # register necessary names
+    model[:A] = A
+    model[:submodel] = submodel
+
+    return model
+end
+
+
 function save_model(model, fid, module_name, model_path)
     write_to_file(model, model_path)
 
