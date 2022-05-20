@@ -2,7 +2,7 @@ module Rawls
 using JuMP, MosekTools
 import ..Main: optimizer_status, generate_column_master!
 export solve_subproblem!, update_constr!, init, fairness_objective!, reference_point!, partial_build_master_problem
-export build_master_problem!, build_linear_combination!
+export build_master_problem!, build_linear_combination!, solution
 
 
 function solve_subproblem!(model)
@@ -54,6 +54,15 @@ function fairness_objective!(model)
 end
 
 
+function solution(model; reference = (0.0, 0.0))
+    y1 = variable_by_name(model, "y[1]")
+    T = variable_by_name(model, "T")
+    d1, d2 = reference
+
+    return (value(y1) + d1, value(T))
+end
+
+
 function reference_point!(model, submodel, A)
     y1 = variable_by_name(model, "y[1]")
 
@@ -100,7 +109,7 @@ function partial_build_master_problem(submodel, init_sol)
     model[:submodel] = submodel
 
     # define variables
-    δ = [@variable(model, lower_bound=0)]
+    δ = [@variable(model, lower_bound=0, base_name = "δ[1]")]
     model[:δ] = δ
     @variable(model, y[i = 1:2])
     @variable(model, z[i = P_])

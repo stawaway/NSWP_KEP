@@ -237,7 +237,7 @@ function distance_to_ideal(sol, ideal, nadir)
     dist = sqrt((i1 - f1)^2 + (i2 - f2)^2)
     norm = sqrt((i1 - d1)^2 + (i2 - d2)^2)
 
-    return dist / norm
+    return norm > 0 ? dist / norm : 0.0
 end
 
 
@@ -249,6 +249,35 @@ function distance_to_nadir(sol, ideal, nadir)
     dist = sqrt((f1 - d1)^2 + (f2 - d2)^2)
     norm = sqrt((i1 - d1)^2 + (i2 - d2)^2)
 
-    return dist / norm
+    return norm > 0 ? dist / norm : 0.0
 end
 
+
+function price_of_fairness(sol, ideal, nadir)
+    i1, i2 = ideal
+    d1, d2 = nadir
+    f1, f2 = sol
+    return i1 > 0 ? (i1 - f1) / i1 : 0.0
+end
+
+
+function price_of_utility(sol, ideal, nadir)
+    i1, i2 = ideal
+    d1, d2 = nadir
+    f1, f2 = sol
+
+    if i2 <= 0
+        return d2 < 0 ? (i2 - f2) / abs(d2) : 0.0 
+    else
+        return i2 > 0 ? (i2 - f2) / i2 : 0.0
+    end
+end
+
+
+# TODO
+# Function to retrieve the constraints that are part of the same container.
+# This is useful since after as model is saved to a file, we lose the container
+# references inside the model.
+function constraint(model, name, index_set)
+
+end

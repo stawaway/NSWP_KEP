@@ -2,7 +2,7 @@ module IF
 using JuMP, MosekTools
 import ..Main: optimizer_status, generate_column_master!
 export solve_subproblem!, update_constr!, init, fairness_objective!, reference_point!, partial_build_master_problem
-export build_master_problem!, build_linear_combination!
+export build_master_problem!, build_linear_combination!, solution
 
 
 function solve_subproblem!(model)
@@ -55,6 +55,15 @@ end
 
 function fairness_objective!(model)
     return @expression(model, -1.0 * variable_by_name(model, "T")) 
+end
+
+
+function solution(model; reference = (0.0, 0.0))
+    y1 = variable_by_name(model, "y[1]")
+    T = variable_by_name(model, "T")
+    d1, d2 = reference
+
+    return (value(y1) + d1, value(-T))
 end
 
 
