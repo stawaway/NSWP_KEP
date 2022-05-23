@@ -34,7 +34,7 @@ function update_constr!(model, new_sol)
     A = model[:A]
     
     # modify the constraints by adding the new column
-    δ = @variable(model, lower_bound = 0.0, base_name = "δ[$(length(A) + 1)]")
+    δ = @variable(model, lower_bound = 0.0, base_name = "δ[$(length(A))]")
     for i = P_
         set_normalized_coefficient(β[i], δ, -new_sol[i])
     end

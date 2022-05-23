@@ -34,7 +34,7 @@ function update_constr!(model, new_sol)
     A = model[:A]
 
     # modify the constraints by adding the new column
-    δ = @variable(model, lower_bound = 0.0, base_name = "δ[$(length(A) + 1)]")
+    δ = @variable(model, lower_bound = 0.0, base_name = "δ[$(length(A))]")
     for i = P_
         set_normalized_coefficient(β[i], δ, -new_sol[i])
     end
@@ -100,14 +100,11 @@ function reference_point!(model, submodel, A)
     @objective(model, Max, f2)
     generate_column_master!(model, solve_subproblem!, update_constr!, A)
     i2 = objective_value(model)
-    d2 = length(P_) * log(1.0 / length(P_)) 
+    d2 = length(P_) * log(1.0 / length(P_))
 
-    # add temp constraint and optimize to get d1
-    temp = @constraint(model, f2 == i2)
+    # set d1
     @objective(model, Max, 1.0 * y1)
-    generate_column_master!(model, solve_subproblem!, update_constr!, A)
-    d1 = objective_value(model)
-    delete(model, temp)
+    d1 = 0.0
 
     ideal = (i1, i2)
     nadir = (d1, d2)
