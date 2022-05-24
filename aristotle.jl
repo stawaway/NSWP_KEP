@@ -16,7 +16,7 @@ function solve_subproblem!(model)
 
     # set the new objective
     pair_count = Dict(i => constraint_object(constraint_by_name(submodel, "capacity[$i]")).func for i = feasible)
-    @objective(submodel, Min, -α0 + sum(α1 *  pair_count[i] for i = feasible) + sum(α2 * pair_count[i] for i = sensitized))
+    @objective(submodel, Min, -α0 + sum(α1 *  pair_count[i] for i = feasible) + sum(α2 * pair_count[i] for i = intersect(sensitized, feasible)))
     optimize!(submodel)
     optimizer_status(submodel)
     ζ = objective_value(submodel)
