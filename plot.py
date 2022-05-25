@@ -36,8 +36,8 @@ def aggregate_data(filename):
             if f"model/{stat}/{scheme}" in f:
                 nswp_data[scheme, stat] = f[f"model/{stat}/{scheme}"]
 
-            if f"model/{stat}/{scheme}" in f:
-                linear_data[scheme, stat] = f[f"model/{stat}/{scheme}"]
+            if f"linear/{stat}/{scheme}" in f:
+                linear_data[scheme, stat] = f[f"linear/{stat}/{scheme}"]
 
     # add the sizes of the sets P and N
     nswp_data["Graph", "|P|"] = f["model/|P|"]
@@ -169,6 +169,7 @@ def plot_time(filename, nswp_df, linear_df):
         axs[1, 3].xaxis.set_tick_params(rotation = 30, labelsize = 8)
         axs[1, 3].boxplot(data, labels = nswp_sizes)
 
+    fig.tight_layout()
     fig.savefig(filename, dpi = 250, bbox_inches = "tight")
 
 
@@ -231,31 +232,31 @@ def plot_solved(filename, nswp_df, linear_df):
         time = linear_df["IF", "time"][mask]
         x = np.linspace(0.0, np.max(time), num = 100)
         y = np.array([np.mean(time <= x[i]) for i in range(len(x))])
-        ax.plot(x, y, color = "yellow", linestyle = "-", label = "NSWP+IF")
+        ax.plot(x, y, color = "yellow", linestyle = "-", label = "IF")
     
     if "Rawls" in linear_df:
         mask = linear_df["Rawls", "time"] >= 0
         time = linear_df["Rawls", "time"][mask]
         x = np.linspace(0.0, np.max(time), num = 100)
         y = np.array([np.mean(time <= x[i]) for i in range(len(x))])
-        ax.plot(x, y, color = "yellow", linestyle = "--", label = "NSWP+Rawls")
+        ax.plot(x, y, color = "yellow", linestyle = "--", label = "Rawls")
 
     if "Aristotle" in linear_df:
         mask = linear_df["Aristotle", "time"] >= 0
         time = linear_df["Aristotle", "time"][mask]
         x = np.linspace(0.0, np.max(time), num = 100)
         y = np.array([np.mean(time <= x[i]) for i in range(len(x))])
-        ax.plot(x, y, color = "yellow", linestyle = "-.", label = "NSWP+Aristotle")
+        ax.plot(x, y, color = "yellow", linestyle = "-.", label = "Aristotle")
 
     if "Nash" in linear_df:
         mask = linear_df["Nash", "time"] >= 0
         time = linear_df["Nash", "time"][mask]
         x = np.linspace(0.0, np.max(time), num = 100)
         y = np.array([np.mean(time <= x[i]) for i in range(len(x))])
-        ax.plot(x, y, color = "yellow", linestyle = ":", label = "NSWP+Nash")
+        ax.plot(x, y, color = "yellow", linestyle = ":", label = "Nash")
 
     ax.legend()
-    fig.savefig(filename)
+    fig.savefig(filename, dpi = 250)
 
 
 def plot_ideal(df):
