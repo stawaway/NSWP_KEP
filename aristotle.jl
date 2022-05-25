@@ -8,7 +8,7 @@ export build_master_problem!, build_linear_combination!, solution
 function solve_subproblem!(model)
     submodel = model[:submodel]
     feasible = submodel[:feasible]
-    sensitized = submodel[:sensitized]
+    sensitized = intersect(feasible, submodel[:sensitized])
     P_H = submodel[:sensitized]
     α0 = dual(constraint_by_name(model, "α0"))
     α1 = dual(constraint_by_name(model, "α1"))
@@ -16,7 +16,7 @@ function solve_subproblem!(model)
 
     # set the new objective
     pair_count = Dict(i => constraint_object(constraint_by_name(submodel, "capacity[$i]")).func for i = feasible)
-    @objective(submodel, Min, -α0 + sum(α1 *  pair_count[i] for i = feasible) + sum(α2 * pair_count[i] for i = intersect(sensitized, feasible)))
+    @objective(submodel, Min, -α0 + sum(α1 *  pair_count[i] for i = feasible) + sum(α2 * pair_count[i] for i = sensitized))
     optimize!(submodel)
     optimizer_status(submodel)
     ζ = objective_value(submodel)
@@ -30,7 +30,7 @@ end
 
 function update_constr!(model, new_sol)
     P_ = keys(new_sol)
-    P_H = model[:submodel][:sensitized]
+    P_H = intersect(P_, model[:submodel][:sensitized])
     α0 = constraint_by_name(model, "α0")
     α1 = constraint_by_name(model, "α1")
     α2 = constraint_by_name(model, "α2")
