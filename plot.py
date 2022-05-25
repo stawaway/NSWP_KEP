@@ -89,7 +89,7 @@ def plot_POU(df):
 
 def plot_time(filename, nswp_df, linear_df):
     fig, axs = plt.subplots(2, 4, sharex = False, sharey = False)
-    fig.text(0.5, 0.02, "Size of |P|", ha = "center")
+    fig.text(0.5, 0.00, "Size of |P|", ha = "center")
     fig.text(0.02, 0.5, "Seconds", va = "center", rotation = "vertical")
     nswp_sizes = sorted(set(nswp_df["Graph", "|P|"]))
     linear_sizes = sorted(set(linear_df["Graph", "|P|"]))
@@ -169,7 +169,7 @@ def plot_time(filename, nswp_df, linear_df):
         axs[1, 3].xaxis.set_tick_params(rotation = 30, labelsize = 8)
         axs[1, 3].boxplot(data, labels = nswp_sizes)
 
-    fig.savefig(filename)
+    fig.savefig(filename, dpi = 250, bbox_inches = "tight")
 
 
 def plot_support(df):
