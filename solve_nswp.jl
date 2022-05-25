@@ -70,10 +70,10 @@ function main()
     # save the experiment's stats
     # TODO also include the POF and POU
     sol = solution(model, reference = nadir)
-    if ! haskey(fid, "stats/support_size/model")
-        fid["stats/support_size/model"] = length(model[:A])
+    if ! haskey(fid, "stats/support_size/model/$nswp_module")
+        fid["stats/support_size/model/$nswp_module"] = length(model[:A])
     end
-    fid["stats/time/$nswp_module/model"] = time() - starttime
+    fid["stats/time/model/$nswp_module"] = time() - starttime
     fid["stats/ideal_distance/model/$nswp_module"] = distance_to_ideal(sol, ideal, nadir)
     fid["stats/nadir_distance/model/$nswp_module"] = distance_to_nadir(sol, ideal, nadir)
     fid["stats/pof/model/$nswp_module"] = price_of_fairness(sol, ideal, nadir)
