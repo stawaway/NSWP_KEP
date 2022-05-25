@@ -91,8 +91,8 @@ def plot_time(filename, nswp_df, linear_df):
     fig, axs = plt.subplots(2, 4, sharex = False, sharey = False)
     fig.text(0.5, 0.02, "Size of |P|", ha = "center")
     fig.text(0.02, 0.5, "Seconds", va = "center", rotation = "vertical")
-    nswp_sizes = set(nswp_df["Graph", "|P|"])
-    linear_sizes = set(linear_df["Graph", "|P|"])
+    nswp_sizes = sorted(set(nswp_df["Graph", "|P|"]))
+    linear_sizes = sorted(set(linear_df["Graph", "|P|"]))
 
     # plot the elapsed times for the NSWP
     if "IF" in nswp_df:
@@ -101,6 +101,7 @@ def plot_time(filename, nswp_df, linear_df):
             mask = np.logical_and(nswp_df["IF", "time"] >= 0, nswp_df["Graph", "|P|"] == size) 
             x = nswp_df["IF", "time"][mask]
             data.append(x)
+        axs[0, 0].xaxis.set_tick_params(rotation = 30, labelsize = 8)
         axs[0, 0].boxplot(data, labels = nswp_sizes)
 
     if "Rawls" in nswp_df:
@@ -109,6 +110,7 @@ def plot_time(filename, nswp_df, linear_df):
             mask = np.logical_and(nswp_df["Rawls", "time"] >= 0, nswp_df["Graph", "|P|"] == size) 
             x = nswp_df["Rawls", "time"][mask]
             data.append(x)
+        axs[0, 1].xaxis.set_tick_params(rotation = 30, labelsize = 8)
         axs[0, 1].boxplot(data, labels = nswp_sizes)
 
     if "Aristotle" in nswp_df:
@@ -117,6 +119,7 @@ def plot_time(filename, nswp_df, linear_df):
             mask = np.logical_and(nswp_df["Aristotle", "time"] >= 0, nswp_df["Graph", "|P|"] == size) 
             x = nswp_df["Aristotle", "time"][mask]
             data.append(x)
+        axs[0, 2].xaxis.set_tick_params(rotation = 30, labelsize = 8)
         axs[0, 2].boxplot(data, labels = nswp_sizes)
 
     if "Nash" in nswp_df:
@@ -125,6 +128,7 @@ def plot_time(filename, nswp_df, linear_df):
             mask = np.logical_and(nswp_df["Nash", "time"] >= 0, nswp_df["Graph", "|P|"] == size) 
             x = nswp_df["Nash", "time"][mask]
             data.append(x)
+        axs[0, 3].xaxis.set_tick_params(rotation = 30, labelsize = 8)
         axs[0, 3].boxplot(data, labels = nswp_sizes)
 
     
@@ -135,6 +139,7 @@ def plot_time(filename, nswp_df, linear_df):
             mask = np.logical_and(linear_df["IF", "time"] >= 0, linear_df["Graph", "|P|"] == size) 
             x = linear_df["IF", "time"][mask]
             data.append(x)
+        axs[1, 0].xaxis.set_tick_params(rotation = 30, labelsize = 8)
         axs[1, 0].boxplot(data, labels = nswp_sizes)
 
     if "Rawls" in linear_df:
@@ -143,6 +148,7 @@ def plot_time(filename, nswp_df, linear_df):
             mask = np.logical_and(linear_df["Rawls", "time"] >= 0, linear_df["Graph", "|P|"] == size) 
             x = linear_df["Rawls", "time"][mask]
             data.append(x)
+        axs[1, 1].xaxis.set_tick_params(rotation = 30, labelsize = 8)
         axs[1, 1].boxplot(data, labels = nswp_sizes)
 
     if "Aristotle" in linear_df:
@@ -151,6 +157,7 @@ def plot_time(filename, nswp_df, linear_df):
             mask = np.logical_and(linear_df["Aristotle", "time"] >= 0, linear_df["Graph", "|P|"] == size) 
             x = linear_df["Aristotle", "time"][mask]
             data.append(x)
+        axs[1, 2].xaxis.set_tick_params(rotation = 30, labelsize = 8)
         axs[1, 2].boxplot(data, labels = nswp_sizes)
 
     if "Nash" in linear_df:
@@ -159,6 +166,7 @@ def plot_time(filename, nswp_df, linear_df):
             mask = np.logical_and(linear_df["Nash", "time"] >= 0, linear_df["Graph", "|P|"] == size) 
             x = linear_df["Nash", "time"][mask]
             data.append(x)
+        axs[1, 3].xaxis.set_tick_params(rotation = 30, labelsize = 8)
         axs[1, 3].boxplot(data, labels = nswp_sizes)
 
     fig.savefig(filename)
