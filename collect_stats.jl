@@ -123,7 +123,7 @@ function file_data(filename)
             support_size_linear = fid["stats/support_size/linear/$scheme"]
             linear_dict["support_size/$scheme"] = support_size_linear
         else
-            linear_dict["support_size/linear/$scheme"] = -1.0
+            linear_dict["support_size/$scheme"] = -1.0
         end
     end
     
