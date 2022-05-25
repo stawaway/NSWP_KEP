@@ -201,28 +201,28 @@ def plot_solved(filename, nswp_df, linear_df):
     if "IF" in nswp_df:
         mask = nswp_df["IF", "time"] >= 0
         time = nswp_df["IF", "time"][mask]
-        x = np.linspace(0.0, np.max(time), num = 100)
+        x = np.sort(time)
         y = np.array([np.mean(time <= x[i]) for i in range(len(x))])
         ax.plot(x, y, color = "black", linestyle = "-", label = "NSWP+IF")
     
     if "Rawls" in nswp_df:
         mask = nswp_df["Rawls", "time"] >= 0
         time = nswp_df["Rawls", "time"][mask]
-        x = np.linspace(0.0, np.max(time), num = 100)
+        x = np.sort(time)
         y = np.array([np.mean(time <= x[i]) for i in range(len(x))])
         ax.plot(x, y, color = "black", linestyle = "--", label = "NSWP+Rawls")
 
     if "Aristotle" in nswp_df:
         mask = nswp_df["Aristotle", "time"] >= 0
         time = nswp_df["Aristotle", "time"][mask]
-        x = np.linspace(0.0, np.max(time), num = 100)
+        x = np.sort(time)
         y = np.array([np.mean(time <= x[i]) for i in range(len(x))])
         ax.plot(x, y, color = "black", linestyle = "-.", label = "NSWP+Aristotle")
 
     if "Nash" in nswp_df:
         mask = nswp_df["Nash", "time"] >= 0
         time = nswp_df["Nash", "time"][mask]
-        x = np.linspace(0.0, np.max(time), num = 100)
+        x = np.sort(time)
         y = np.array([np.mean(time <= x[i]) for i in range(len(x))])
         ax.plot(x, y, color = "black", linestyle = ":", label = "NSWP+Nash")
 
@@ -230,32 +230,33 @@ def plot_solved(filename, nswp_df, linear_df):
     if "IF" in linear_df:
         mask = linear_df["IF", "time"] >= 0
         time = linear_df["IF", "time"][mask]
-        x = np.linspace(0.0, np.max(time), num = 100)
+        x = np.sort(time)
         y = np.array([np.mean(time <= x[i]) for i in range(len(x))])
-        ax.plot(x, y, color = "yellow", linestyle = "-", label = "IF")
+        ax.plot(x, y, color = "orange", linestyle = "-", label = "IF")
     
     if "Rawls" in linear_df:
         mask = linear_df["Rawls", "time"] >= 0
         time = linear_df["Rawls", "time"][mask]
-        x = np.linspace(0.0, np.max(time), num = 100)
+        x = np.sort(time)
         y = np.array([np.mean(time <= x[i]) for i in range(len(x))])
-        ax.plot(x, y, color = "yellow", linestyle = "--", label = "Rawls")
+        ax.plot(x, y, color = "orange", linestyle = "--", label = "Rawls")
 
     if "Aristotle" in linear_df:
         mask = linear_df["Aristotle", "time"] >= 0
         time = linear_df["Aristotle", "time"][mask]
-        x = np.linspace(0.0, np.max(time), num = 100)
+        x = np.sort(time)
         y = np.array([np.mean(time <= x[i]) for i in range(len(x))])
-        ax.plot(x, y, color = "yellow", linestyle = "-.", label = "Aristotle")
+        ax.plot(x, y, color = "orange", linestyle = "-.", label = "Aristotle")
 
     if "Nash" in linear_df:
         mask = linear_df["Nash", "time"] >= 0
         time = linear_df["Nash", "time"][mask]
-        x = np.linspace(0.0, np.max(time), num = 100)
+        x = np.sort(time)
         y = np.array([np.mean(time <= x[i]) for i in range(len(x))])
-        ax.plot(x, y, color = "yellow", linestyle = ":", label = "Nash")
+        ax.plot(x, y, color = "orange", linestyle = ":", label = "Nash")
 
     ax.legend()
+    ax.set_xscale("log")
     fig.savefig(filename, dpi = 250)
 
 

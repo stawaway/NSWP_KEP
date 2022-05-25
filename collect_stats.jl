@@ -54,14 +54,14 @@ function file_data(filename)
         # get the distance to ideal
         if haskey(fid, "stats/ideal_distance/linear/$scheme")
             ideal_dist_linear = fid["stats/ideal_distance/linear/$scheme"]
-            linear_dict["ideal_distance/$scheme"] = ideal_dist_linear 
+            linear_dict["ideal_distance/$scheme"] = 0.0 <= ideal_dist_linear <= 1.0 ? ideal_dist_linear : -1.0
         else
             linear_dict["ideal_distance/$scheme"] = -1.0
         end
 
         if haskey(fid, "stats/ideal_distance/model/$scheme")
             ideal_dist_model = fid["stats/ideal_distance/model/$scheme"]
-            model_dict["ideal_distance/$scheme"] = ideal_dist_model
+            model_dict["ideal_distance/$scheme"] = 0.0 <= ideal_dist_model <= 1.0 ? ideal_dist_model : -1.0
         else
             model_dict["ideal_distance/$scheme"] = -1.0
         end
@@ -69,14 +69,14 @@ function file_data(filename)
         # get the distance to nadir
         if haskey(fid, "stats/nadir_distance/linear/$scheme")
             nadir_dist_linear = fid["stats/nadir_distance/linear/$scheme"]
-            linear_dict["nadir_distance/$scheme"] = nadir_dist_linear
+            linear_dict["nadir_distance/$scheme"] = 0.0 <= nadir_dist_linear <= 1.0 ? nadir_dist_linear : -1.0
         else
             linear_dict["nadir_distance/$scheme"] = -1.0
         end
 
         if haskey(fid, "stats/nadir_distance/model/$scheme")
             nadir_dist_model = fid["stats/nadir_distance/model/$scheme"]
-            model_dict["nadir_distance/$scheme"] = nadir_dist_model
+            model_dict["nadir_distance/$scheme"] = 0.0 <= nadir_dist_model <= 1.0 ? nadir_dist_model : -1.0
         else
             model_dict["nadir_distance/$scheme"] = -1.0
         end
@@ -84,14 +84,14 @@ function file_data(filename)
         # get the POF
         if haskey(fid, "stats/pof/linear/$scheme")
             pof_linear = fid["stats/pof/linear/$scheme"]
-            linear_dict["POF/$scheme"] = pof_linear
+            linear_dict["POF/$scheme"] = 0.0 <= pof_linear <= 1.0 ? pof_linear : -1.0
         else
             linear_dict["POF/$scheme"] = -1.0
         end
 
         if haskey(fid, "stats/pof/model/$scheme")
             pof_model = fid["stats/pof/model/$scheme"]
-            model_dict["POF/$scheme"] = pof_model
+            model_dict["POF/$scheme"] = 0.0 <= pof_model <= 1.0 ? pof_model : -1.0
         else
             model_dict["POF/$scheme"] = -1.0
         end
@@ -99,14 +99,14 @@ function file_data(filename)
         # get the POU
         if haskey(fid, "stats/pou/linear/$scheme")
             pou_linear = fid["stats/pou/linear/$scheme"]
-            linear_dict["POU/$scheme"] = pou_linear
+            linear_dict["POU/$scheme"] = 0.0 <= pou_linear <= 1.0 ? pou_linear : -1.0
         else
             linear_dict["POU/$scheme"] = -1.0
         end
 
         if haskey(fid, "stats/pou/model/$scheme")
             pou_model = fid["stats/pou/model/$scheme"]
-            model_dict["POU/$scheme"] = pou_model
+            model_dict["POU/$scheme"] = 0.0 <= pou_model <= 1.0 ? pou_model : -1.0
         else
             model_dict["POU/$scheme"] = -1.0
         end
