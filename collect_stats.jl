@@ -110,6 +110,21 @@ function file_data(filename)
         else
             model_dict["POU/$scheme"] = -1.0
         end
+
+        # get the support size
+        if haskey(fid, "stats/support_size/model/$scheme")
+            support_size_model = fid["stats/support_size/model/$scheme"]
+            model_dict["support_size/$scheme"] = support_size_model
+        else
+            model_dict["support_size/$scheme"] = -1.0
+        end
+
+        if haskey(fid, "stats/support_size/linear/$scheme")
+            support_size_linear = fid["stats/support_size/linear/$scheme"]
+            linear_dict["support_size/$scheme"] = support_size_linear
+        else
+            linear_dict["support_size/linear/$scheme"] = -1.0
+        end
     end
     
     close(fid)
