@@ -229,13 +229,17 @@ function get_positions(G, d, L)
 end
 
 
+# TODO normalize the squared distance between i1/f1 and i2/f2
+# otherwise we get a skewed idea of the distance
 function distance_to_ideal(sol, ideal, nadir)
     i1, i2 = ideal
     d1, d2 = nadir
     f1, f2 = sol
 
-    dist = sqrt((i1 - f1)^2 + (i2 - f2)^2)
-    norm = sqrt((i1 - d1)^2 + (i2 - d2)^2)
+    dist = i1 - d1 > 0 ? (f1 - d1) / (i1 - d1) : 0.0
+    dist = i2 - d2 > 0 ? dist + (f2 - d2) / (i2 - d2) : dist
+    norm = i1 - d1 > 0 ? 1.0 : 0.0
+    norm = i2 - d2 > 0 ? dist + 1.0 : norm
 
     return norm > 0 ? dist / norm : 0.0
 end
@@ -246,8 +250,11 @@ function distance_to_nadir(sol, ideal, nadir)
     d1, d2 = nadir
     f1, f2 = sol
 
-    dist = sqrt((f1 - d1)^2 + (f2 - d2)^2)
-    norm = sqrt((i1 - d1)^2 + (i2 - d2)^2)
+    dist = i1 - d1 > 0 ? (f1 - d1) / (i1 - d1) : 0.0
+    dist = i2 - d2 > 0 ? dist + (f2 - d2) / (i2 - d2) : dist
+    norm = i1 - d1 > 0 ? 1.0 : 0.0
+    norm = i2 - d2 > 0 ? norm + 1.0 : norm 
+    #sqrt((i1 - d1)^2 + (i2 - d2)^2)
 
     return norm > 0 ? dist / norm : 0.0
 end
