@@ -67,7 +67,7 @@ function solution(model; reference = (0.0, 0.0))
 end
 
 
-function reference_point!(model, submodel, A)
+function reference_point!(model, submodel, A; stats = Stats(time(), 0))
     y = variable_by_name(model, "y[1]")
 
     # compute i1
@@ -82,7 +82,8 @@ function reference_point!(model, submodel, A)
     # change the objective to f2 to compute d2
     f2 = fairness_objective!(model)
     @objective(model, Max, f2)
-    generate_column_master!(model, solve_subproblem!, update_constr!, A)
+    stats.time = time()
+    generate_column_master!(model, solve_subproblem!, update_constr!, A, stats = stats)
     d2 = objective_value(model)
 
     # delete temp constraint and optimize to get f2
@@ -113,7 +114,7 @@ function partial_build_master_problem(submodel, init_sol)
     model[:submodel] = submodel
 
     # define variables
-    δ = [@variable(model, lower_bound=0, base_name = "δ[$j]") for j = 1:length(init_sol)]
+    δ = [@variable(model, lower_bound=0, base_name = "δ[1]")]
     @variable(model, y[i = 1:2])
     @variable(model, z0)
     @variable(model, z[i = P_])

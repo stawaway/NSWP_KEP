@@ -99,12 +99,19 @@ macro setup()
 end
 
 
-function module_specific!(fid, module_name, submodel) 
+function module_specific!(fid, module_name, submodel)
+    stats = Stats(time(), 1)
     optimize!(submodel)
     init_sol = init(submodel)
-    model = partial_build_master_problem(submodel, init_sol)
-    ideal, nadir = reference_point!(model, submodel, model[:A])
     
+    # partially build the main model and find ideal / reference point
+    model = partial_build_master_problem(submodel, init_sol)
+    ideal, nadir = reference_point!(model, submodel, model[:A], stats = stats)
+ 
+    # save the time and support size
+    fid["stats/time/single/$nswp_module"] = stats.time
+    fid["stats/support_size/single/$nswp_module"] = stats.support
+   
     # build linear model and save it
     build_linear_combination!(model, ideal, nadir)
     save_linear(model, fid, module_name, joinpath(model_path, nswp_module, filename * "_linear.mof.json"))

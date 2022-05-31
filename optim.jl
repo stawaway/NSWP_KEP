@@ -221,7 +221,7 @@ function feasible_subgraph!(submodel, G, d, K, K_, L)
 end
 
 
-function generate_column_master!(model, submodel_fn, update_constr_fn, A)
+function generate_column_master!(model, submodel_fn, update_constr_fn, A; stats = Stats(time(), 0))
     submodel = model[:submodel]
     optimize!(model)
     optimizer_status(model)
@@ -247,6 +247,8 @@ function generate_column_master!(model, submodel_fn, update_constr_fn, A)
         end
     end
 
+    stats.time = time() - stats.time
+    stats.support = sum(value(variable_by_name(model, "δ[$i]")) > 0 ? 1 : 0 for i = 1:length(A))
     return A
 end
 

@@ -85,7 +85,7 @@ function solution(model; reference = (0.0, 0.0))
 end
 
 
-function reference_point!(model, submodel, A)
+function reference_point!(model, submodel, A; stats = Stats(time(), 0))
     y1 = variable_by_name(model, "y[1]")
     P_ = keys(A[end])
 
@@ -98,7 +98,8 @@ function reference_point!(model, submodel, A)
     # change the objective to f2 to compute i2
     f2 = fairness_objective!(model)
     @objective(model, Max, f2)
-    generate_column_master!(model, solve_subproblem!, update_constr!, A)
+    stats.time = time()
+    generate_column_master!(model, solve_subproblem!, update_constr!, A, stats = stats)
     i2 = objective_value(model)
     d2 = length(P_) * log(1.0 / length(P_))
 

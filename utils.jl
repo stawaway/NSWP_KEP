@@ -281,6 +281,25 @@ function price_of_utility(sol, ideal, nadir)
 end
 
 
+function support_size(model, A)
+    size = 0
+    for i = 1:length(A)
+        var = variable_by_name(model, "δ[$i]")
+        if value(var) > 0
+            size += 1
+        end
+    end
+
+    return size
+end
+
+
+mutable struct Stats 
+    time::Float64
+    support::Int
+end
+
+
 # TODO
 # Function to retrieve the constraints that are part of the same container.
 # This is useful since after as model is saved to a file, we lose the container
