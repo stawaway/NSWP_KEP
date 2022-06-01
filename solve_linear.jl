@@ -68,11 +68,9 @@ function main()
     d1, d2 = nadir
 
     # save the experiment's stats
-    # TODO also include the POF and POU
     sol = solution(model)
-    if ! haskey(fid, "stats/support_size/linear/$nswp_module")
-        fid["stats/support_size/linear/$nswp_module"] = length(model[:A])
-    end
+    fid["stats/objective_value/linear/$nswp_module"] = sol
+    fid["stats/support_size/linear/$nswp_module"] = support_size(model, model[:A]) # length(model[:A]) # TODO only keep nonzero weights
     fid["stats/time/linear/$nswp_module"] = time() - starttime
     fid["stats/ideal_distance/linear/$nswp_module"] = distance_to_ideal(sol, ideal, nadir)
     fid["stats/nadir_distance/linear/$nswp_module"] = distance_to_nadir(sol, ideal, nadir)

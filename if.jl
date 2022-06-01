@@ -163,8 +163,8 @@ function build_linear_combination!(model, ideal, nadir)
     # weight the objectives
     i1, i2 = ideal
     d1, d2 = nadir
-    if i1 != d1
-        if i2 == d2
+    if i1 > d1
+        if i2 <= d2
             w1 = 1.0
             w2 = 0.0
         else
@@ -172,7 +172,7 @@ function build_linear_combination!(model, ideal, nadir)
             w2 = 1.0 / abs(i2 - d2)
         end
     else
-        if i2 != d2
+        if i2 > d2
             w1 = 0.0
             w2 = 1.0
         else
