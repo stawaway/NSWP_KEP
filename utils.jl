@@ -236,10 +236,13 @@ function distance_to_ideal(sol, ideal, nadir)
     d1, d2 = nadir
     f1, f2 = sol
 
-    dist = i1 - d1 > 0 ? (f1 - d1) / (i1 - d1) : 0.0
-    dist = i2 - d2 > 0 ? dist + (f2 - d2) / (i2 - d2) : dist
-    norm = i1 - d1 > 0 ? 1.0 : 0.0
-    norm = i2 - d2 > 0 ? dist + 1.0 : norm
+    norm = i1 - d1 > 0 ? (i1 - d1)^2 : 0.0
+    norm += i2 - d2 > 0 ? (i2 - d2)^2 : 0.0
+    norm = sqrt(norm)
+
+    dist = i1 - f1 > 0 ? (i1 - f1)^2 : 0.0
+    dist += i2 - f2 > 0 ? (i2 - f2)^2 : 0.0
+    dist = sqrt(dist)
 
     return norm > 0 ? dist / norm : 0.0
 end
@@ -250,11 +253,13 @@ function distance_to_nadir(sol, ideal, nadir)
     d1, d2 = nadir
     f1, f2 = sol
 
-    dist = i1 - d1 > 0 ? (f1 - d1) / (i1 - d1) : 0.0
-    dist = i2 - d2 > 0 ? dist + (f2 - d2) / (i2 - d2) : dist
-    norm = i1 - d1 > 0 ? 1.0 : 0.0
-    norm = i2 - d2 > 0 ? norm + 1.0 : norm 
-    #sqrt((i1 - d1)^2 + (i2 - d2)^2)
+    norm = i1 - d1 > 0 ? (i1 - d1)^2 : 0.0
+    norm += i2 - d2 > 0 ? (i2 - d2)^2 : 0.0
+    norm = sqrt(norm)
+
+    dist = f1 - d1 > 0 ? (f1 - d1)^2 : 0.0
+    dist += f2 - d2 > 0 ? (f2 - d2)^2 : 0.0
+    dist = sqrt(dist)
 
     return norm > 0 ? dist / norm : 0.0
 end
