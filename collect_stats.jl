@@ -26,7 +26,7 @@ function file_data(filename)
 
     if haskey(fid, "stats/G")
         G = fid["stats/G"]
-        single_dict["|P"] = length(adjlistP(G))
+        single_dict["|P|"] = length(adjlistP(G))
         linear_dict["|P|"] = length(adjlistP(G))
         model_dict["|P|"] = length(adjlistP(G))
 
@@ -34,7 +34,14 @@ function file_data(filename)
         linear_dict["|N|"] = length(adjlistN(G))
         model_dict["|N|"] = length(adjlistN(G))
     else
-        println(fid) # TODO Remove this else after you are done
+        println(fid)
+        single_dict["|P|"] = -1.0
+        linear_dict["|P|"] = -1.0
+        model_dict["|P|"] = -1.0
+
+        single_dict["|N|"] = -1.0
+        linear_dict["|N|"] = -1.0
+        model_dict["|N|"] = -1.0
     end
 
     schemes = ["IF", "Rawls", "Nash", "Aristotle"]
