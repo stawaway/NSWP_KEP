@@ -106,10 +106,10 @@ function file_data(filename)
         end
 
         # get the POF
-        if haskey(fid, "stats/ideal/$scheme") && haskey(fid, "stats/ideal/$scheme") && haskey(fid, "stats/objective_value/$scheme") 
+        if haskey(fid, "stats/ideal/$scheme")
             ideal = fid["stats/ideal/$scheme"]
             nadir = fid["stats/nadir/$scheme"]
-            sol = fid["stats/objective_value/$scheme"]
+            sol = (ideal[1], nadir[2])
             pof_single = price_of_fairness(sol, ideal, nadir)
             single_dict["POF/$scheme"] = 0.0 <= pof_single <= 1.0 ? pof_single : -1.0
         else
@@ -131,11 +131,11 @@ function file_data(filename)
         end
 
         # get the POU
-        if haskey(fid, "stats/nadir/$scheme") && haskey(fid, "stats/nadir/$scheme") && haskey(fid, "stats/objective_value/$scheme") 
+        if haskey(fid, "stats/ideal/$scheme")
+            nadir = fid["stats/ideal/$scheme"]
             nadir = fid["stats/nadir/$scheme"]
-            nadir = fid["stats/nadir/$scheme"]
-            sol = fid["stats/objective_value/$scheme"]
-            pou_single = price_of_utility(sol, nadir, nadir)
+            sol = (ideal[1], nadir[2])
+            pou_single = price_of_utility(sol, ideal, nadir)
             single_dict["POU/$scheme"] = 0.0 <= pou_single <= 1.0 ? pou_single : -1.0
         else
             single_dict["POU/$scheme"] = -1.0
