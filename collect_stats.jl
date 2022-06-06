@@ -20,14 +20,17 @@ output = parsed_args["output"]
 
 function file_data(filename)
     fid = jldopen(filename, "r")
+    single_dict = Dict{String, Float64}()
     linear_dict = Dict{String, Float64}()
     model_dict = Dict{String, Float64}()
 
     if haskey(fid, "stats/G")
         G = fid["stats/G"]
+        single_dict["|P"] = length(adjlistP(G))
         linear_dict["|P|"] = length(adjlistP(G))
         model_dict["|P|"] = length(adjlistP(G))
 
+        single_dict["|N|"] = length(adjlistN(G))
         linear_dict["|N|"] = length(adjlistN(G))
         model_dict["|N|"] = length(adjlistN(G))
     else
@@ -37,6 +40,13 @@ function file_data(filename)
     schemes = ["IF", "Rawls", "Nash", "Aristotle"]
     for scheme in schemes
         # get the time
+        if haskey(fid, "stats/time/single/$scheme")
+            time_single = fid["stats/time/single/$scheme"]
+            single_dict["time/$scheme"] = time_single
+        else
+            single_dict["time/$scheme"] = -1.0
+        end
+
         if haskey(fid, "stats/time/linear/$scheme")
             time_linear = fid["stats/time/linear/$scheme"]
             linear_dict["time/$scheme"] = time_linear
@@ -52,6 +62,13 @@ function file_data(filename)
         end
 
         # get the distance to ideal
+        if haskey(fid, "stats/ideal_distance/single/$scheme")
+            ideal_dist_single = fid["stats/ideal_distance/single/$scheme"]
+            single_dict["ideal_distance/$scheme"] = 0.0 <= ideal_dist_single <= 1.0 ? ideal_dist_single : -1.0
+        else
+            single_dict["ideal_distance/$scheme"] = -1.0
+        end
+
         if haskey(fid, "stats/ideal_distance/linear/$scheme")
             ideal_dist_linear = fid["stats/ideal_distance/linear/$scheme"]
             linear_dict["ideal_distance/$scheme"] = 0.0 <= ideal_dist_linear <= 1.0 ? ideal_dist_linear : -1.0
@@ -67,6 +84,13 @@ function file_data(filename)
         end
 
         # get the distance to nadir
+        if haskey(fid, "stats/nadir_distance/single/$scheme")
+            nadir_dist_single = fid["stats/nadir_distance/single/$scheme"]
+            single_dict["nadir_distance/$scheme"] = 0.0 <= nadir_dist_single <= 1.0 ? nadir_dist_single : -1.0
+        else
+            single_dict["nadir_distance/$scheme"] = -1.0
+        end
+
         if haskey(fid, "stats/nadir_distance/linear/$scheme")
             nadir_dist_linear = fid["stats/nadir_distance/linear/$scheme"]
             linear_dict["nadir_distance/$scheme"] = 0.0 <= nadir_dist_linear <= 1.0 ? nadir_dist_linear : -1.0
@@ -82,6 +106,16 @@ function file_data(filename)
         end
 
         # get the POF
+        if haskey(fid, "stats/ideal/$scheme") && haskey(fid, "stats/ideal/$scheme") && haskey(fid, "stats/objective_value/$scheme") 
+            ideal = fid["stats/ideal/$scheme"]
+            nadir = fid["stats/nadir/$scheme"]
+            sol = fid["stats/objective_value/$scheme"]
+            pof_single = price_of_fairness(sol, ideal, nadir)
+            single_dict["POF/$scheme"] = 0.0 <= pof_single <= 1.0 ? pof_single : -1.0
+        else
+            single_dict["POF/$scheme"] = -1.0
+        end
+
         if haskey(fid, "stats/pof/linear/$scheme")
             pof_linear = fid["stats/pof/linear/$scheme"]
             linear_dict["POF/$scheme"] = 0.0 <= pof_linear <= 1.0 ? pof_linear : -1.0
@@ -97,6 +131,16 @@ function file_data(filename)
         end
 
         # get the POU
+        if haskey(fid, "stats/nadir/$scheme") && haskey(fid, "stats/nadir/$scheme") && haskey(fid, "stats/objective_value/$scheme") 
+            nadir = fid["stats/nadir/$scheme"]
+            nadir = fid["stats/nadir/$scheme"]
+            sol = fid["stats/objective_value/$scheme"]
+            pou_single = price_of_utility(sol, nadir, nadir)
+            single_dict["POU/$scheme"] = 0.0 <= pou_single <= 1.0 ? pou_single : -1.0
+        else
+            single_dict["POU/$scheme"] = -1.0
+        end
+
         if haskey(fid, "stats/pou/linear/$scheme")
             pou_linear = fid["stats/pou/linear/$scheme"]
             linear_dict["POU/$scheme"] = 0.0 <= pou_linear <= 1.0 ? pou_linear : -1.0
@@ -112,6 +156,13 @@ function file_data(filename)
         end
 
         # get the support size
+        if haskey(fid, "stats/support_size/single/$scheme")
+            support_size_model = fid["stats/support_size/single/$scheme"]
+            single_dict["support_size/$scheme"] = support_size_model
+        else
+            single_dict["support_size/$scheme"] = -1.0
+        end
+
         if haskey(fid, "stats/support_size/model/$scheme")
             support_size_model = fid["stats/support_size/model/$scheme"]
             model_dict["support_size/$scheme"] = support_size_model
@@ -128,15 +179,16 @@ function file_data(filename)
     end
     
     close(fid)
-    return linear_dict, model_dict
+    return single_dict, linear_dict, model_dict
 end
 
 
 function collect_stats(dir, output)
     # open file to store the data
     fid = h5open(output, "w") # TODO take care of this line
-    linear = Dict{String, Vector{Float64}}() #("time" => [], "ideal_distance" => [], "nadir_distance" => [], "POF" => [], "POU" => [], "|P|" => [], "|N|" => []) 
-    model = Dict{String, Vector{Float64}}() #("time" => [], "ideal_distance" => [], "nadir_distance" => [], "POF" => [], "POU" => [], "|P|" => [], "|N|" => []) 
+    single = Dict{String, Vector{Float64}}()
+    linear = Dict{String, Vector{Float64}}()
+    model = Dict{String, Vector{Float64}}()
 
     # loop over files and collect data
     for filename in Base.Filesystem.readdir(dir)
@@ -144,24 +196,39 @@ function collect_stats(dir, output)
             continue
         end
         # store the data in the file
-        linear_dict, model_dict = file_data(joinpath(dir, filename))
+        try
+            single_dict, linear_dict, model_dict = file_data(joinpath(dir, filename))
 
-        for (key, val) in linear_dict
-            if ! haskey(linear, key)
-                linear[key] = Vector{Float64}()
+            for (key, val) in single_dict 
+                if ! haskey(single, key)
+                    single[key] = Vector{Float64}()
+                end
+                push!(single[key], val)
             end
-            push!(linear[key], val)
-        end
 
-        for (key, val) in model_dict
-            if ! haskey(model, key)
-                model[key] = Vector{Float64}()
+            for (key, val) in linear_dict
+                if ! haskey(linear, key)
+                    linear[key] = Vector{Float64}()
+                end
+                push!(linear[key], val)
             end
-            push!(model[key], val)
+
+            for (key, val) in model_dict
+                if ! haskey(model, key)
+                    model[key] = Vector{Float64}()
+                end
+                push!(model[key], val)
+            end
+        catch EOFError
+            continue
         end
     end
 
     # save the experimental data for the model with linear combination of objectives
+    for (key, val) in single 
+        fid["single/$key"] = val
+    end
+
     for (key, val) in linear
         fid["linear/$key"] = val
     end
