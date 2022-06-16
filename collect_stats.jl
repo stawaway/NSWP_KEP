@@ -56,22 +56,25 @@ function file_data(filename)
 
         if haskey(fid, "stats/time/linear/$scheme")
             time_linear = fid["stats/time/linear/$scheme"]
-            linear_dict["time/$scheme"] = time_linear
+            linear_dict["time/$scheme"] = time_linear + time_single
         else
             linear_dict["time/$scheme"] = -1.0
         end
 
         if haskey(fid, "stats/time/model/$scheme")
             time_model = fid["stats/time/model/$scheme"]
-            model_dict["time/$scheme"] = time_model
+            model_dict["time/$scheme"] = time_model + time_single
         else
             model_dict["time/$scheme"] = -1.0
         end
 
         # get the distance to ideal
-        if haskey(fid, "stats/ideal_distance/single/$scheme")
-            ideal_dist_single = fid["stats/ideal_distance/single/$scheme"]
-            single_dict["ideal_distance/$scheme"] = 0.0 <= ideal_dist_single <= 1.0 ? ideal_dist_single : -1.0
+        if haskey(fid, "stats/ideal/$scheme")
+            ideal = fid["stats/ideal/$scheme"]
+            nadir = fid["stats/nadir/$scheme"]
+            sol = (ideal[1], nadir[2])
+            val = distance_to_ideal(sol, ideal, nadir) 
+            single_dict["ideal_distance/$scheme"] = 0.0 <= val <= 1.0 ? val : -1.0
         else
             single_dict["ideal_distance/$scheme"] = -1.0
         end
@@ -91,9 +94,12 @@ function file_data(filename)
         end
 
         # get the distance to nadir
-        if haskey(fid, "stats/nadir_distance/single/$scheme")
-            nadir_dist_single = fid["stats/nadir_distance/single/$scheme"]
-            single_dict["nadir_distance/$scheme"] = 0.0 <= nadir_dist_single <= 1.0 ? nadir_dist_single : -1.0
+        if haskey(fid, "stats/nadir/$scheme")
+            ideal = fid["stats/ideal/$scheme"]
+            nadir = fid["stats/nadir/$scheme"]
+            sol = (ideal[1], nadir[2])
+            val = distance_to_nadir(sol, ideal, nadir)
+            single_dict["nadir_distance/$scheme"] = 0.0 <= val <= 1.0 ? val : -1.0
         else
             single_dict["nadir_distance/$scheme"] = -1.0
         end
@@ -116,7 +122,7 @@ function file_data(filename)
         if haskey(fid, "stats/ideal/$scheme")
             ideal = fid["stats/ideal/$scheme"]
             nadir = fid["stats/nadir/$scheme"]
-            sol = (ideal[1], nadir[2])
+            sol = (ideal[2], nadir[1])
             pof_single = price_of_fairness(sol, ideal, nadir)
             single_dict["POF/$scheme"] = 0.0 <= pof_single <= 1.0 ? pof_single : -1.0
         else
@@ -183,8 +189,9 @@ function file_data(filename)
         else
             linear_dict["support_size/$scheme"] = -1.0
         end
+
     end
-    
+
     close(fid)
     return single_dict, linear_dict, model_dict
 end
@@ -193,6 +200,7 @@ end
 function collect_stats(dir, output)
     # open file to store the data
     fid = h5open(output, "w") # TODO take care of this line
+    
     single = Dict{String, Vector{Float64}}()
     linear = Dict{String, Vector{Float64}}()
     model = Dict{String, Vector{Float64}}()
