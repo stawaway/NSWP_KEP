@@ -302,6 +302,7 @@ end
 mutable struct Stats 
     time::Float64
     support::Int
+    solution::Dict{Int, Float64}
 end
 
 

@@ -221,7 +221,7 @@ function feasible_subgraph!(submodel, G, d, K, K_, L)
 end
 
 
-function generate_column_master!(model, submodel_fn, update_constr_fn, A; stats = Stats(time(), 0))
+function generate_column_master!(model, submodel_fn, update_constr_fn, A; stats = Stats(time(), 0, Dict{Int, Float64}()))
     submodel = model[:submodel]
     optimize!(model)
     optimizer_status(model)

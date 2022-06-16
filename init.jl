@@ -100,7 +100,7 @@ end
 
 
 function module_specific!(fid, module_name, submodel)
-    stats = Stats(time(), 1)
+    stats = Stats(time(), 1, Dict{Int, Float64}())
     optimize!(submodel)
     init_sol = init(submodel)
     
@@ -111,7 +111,8 @@ function module_specific!(fid, module_name, submodel)
     # save the time and support size
     fid["stats/time/single/$nswp_module"] = stats.time
     fid["stats/support_size/single/$nswp_module"] = stats.support
-   
+    fid["stats/probs/single/$nswp_module"] = stats.solution
+
     # build linear model and save it
     build_linear_combination!(model, ideal, nadir)
     save_linear(model, fid, module_name, joinpath(model_path, nswp_module, filename * "_linear.mof.json"))

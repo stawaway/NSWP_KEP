@@ -67,7 +67,7 @@ function solution(model; reference = (0.0, 0.0))
 end
 
 
-function reference_point!(model, submodel, A; stats = Stats(time(), 0))
+function reference_point!(model, submodel, A; stats = Stats(time(), 0, Dict{Int, Float64}()))
     y = variable_by_name(model, "y[1]")
 
     # compute i1
@@ -90,6 +90,7 @@ function reference_point!(model, submodel, A; stats = Stats(time(), 0))
     delete(model, temp)
     generate_column_master!(model, solve_subproblem!, update_constr!, A)
     i2 = objective_value(model)
+    stats.solution = Dict(i => value(variable_by_name(model, "z[$i]")) for i in submodel[:feasible]) 
 
     # add temp constraint and optimize to get d1
     temp = @constraint(model, f2 == i2)
