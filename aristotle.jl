@@ -65,33 +65,23 @@ function solution(model; reference = (0.0, 0.0))
     y1 = variable_by_name(model, "y[1]")
     y2 = variable_by_name(model, "y[2]")
     d1, d2 = reference
+    A = model[:A]
+    feasible = model[:submodel][:feasible]
+    probs = Dict(
+        i => value(sum(A[j][i] * variable_by_name(model, "δ[$j]") for j = 1:length(A))) for i in feasible)
 
-    return (value(y1) + d1, value(y2) + d2)
+    return (value(y1) + d1, value(y2) + d2), probs
 end
 
 
 function reference_point!(model, submodel, A; stats = Stats(time(), 0, Dict{Int, Float64}()))
     y1 = variable_by_name(model, "y[1]")
+    sub_obj = objective_function(submodel)
 
-    # compute i1
-    f1 = 1.0 * y1
-    optimize!(submodel)
-    optimizer_status(submodel)
-    i1 = objective_value(submodel)
-
-    # add temporary constraint
-    temp = @constraint(model, f1 == objective_value(submodel))
-
-    # change the objective to f2 to compute d2
+    # optimize to get f2
     f2 = fairness_objective!(model)
     @objective(model, Max, f2)
-    stats.time = time()
     generate_column_master!(model, solve_subproblem!, update_constr!, A, stats = stats)
-    d2 = objective_value(model)
-
-    # delete temp constraint and optimize to get f2
-    delete(model, temp)
-    generate_column_master!(model, solve_subproblem!, update_constr!, A)
     i2 = objective_value(model)
     stats.solution = Dict(i => sum(A[j][i] * value(variable_by_name(model, "δ[$j]")) for j = length(A)) for i in submodel[:feasible])
 
@@ -100,6 +90,23 @@ function reference_point!(model, submodel, A; stats = Stats(time(), 0, Dict{Int,
     @objective(model, Max, 1.0 * y1)
     generate_column_master!(model, solve_subproblem!, update_constr!, A)
     d1 = objective_value(model)
+    delete(model, temp)
+
+    # compute i1
+    f1 = 1.0 * y1
+    @objective(submodel, Max, sub_obj)
+    optimize!(submodel)
+    optimizer_status(submodel)
+    i1 = objective_value(submodel)
+
+    # add temporary constraint
+    temp = @constraint(model, f1 == objective_value(submodel))
+
+    # change the objective to f2 to compute d2
+    @objective(model, Max, f2)
+    stats.time = time()
+    generate_column_master!(model, solve_subproblem!, update_constr!, A)
+    d2 = objective_value(model)
     delete(model, temp)
 
     ideal = (i1, i2)

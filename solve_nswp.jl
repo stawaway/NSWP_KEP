@@ -68,8 +68,9 @@ function main()
     d1, d2 = nadir
 
     # save the experiment's stats
-    sol = solution(model, reference = nadir)
+    sol, probs = solution(model, reference = nadir)
     fid["stats/objective_value/model/$nswp_module"] = sol
+    fid["stats/probs/model/$nswp_module"] = probs
     fid["stats/support_size/model/$nswp_module"] = support_size(model, model[:A]) #length(model[:A]) # TODO Keep only the solutions with nonzero weights
     fid["stats/time/model/$nswp_module"] = time() - starttime
     fid["stats/ideal_distance/model/$nswp_module"] = distance_to_ideal(sol, ideal, nadir)
