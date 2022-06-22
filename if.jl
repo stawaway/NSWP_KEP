@@ -62,7 +62,8 @@ function solution(model; reference = (0.0, 0.0))
     y1 = variable_by_name(model, "y[1]")
     T = variable_by_name(model, "T")
     d1, d2 = reference
-    probs = Dict(i => value(variable_by_name(model, "z[$i]")) for i in model[:submodel][:feasible])
+    z0 = value(variable_by_name(model, "z0")) 
+    probs = Dict(i => value(variable_by_name(model, "z[$i]")) + z0 for i in model[:submodel][:feasible])
 
     return (value(y1) + d1, value(-T)), probs
 end
