@@ -52,7 +52,7 @@ end
 
 
 function price_aristotle(probs, ideal, nadir, sensitized)
-    f2 = sum(val for (key, val) in probs if key in sensitized)
+    f2 = sum([val for (key, val) in probs if key in sensitized], init = 0.0)
     f1 = sum(val for (_, val) in probs)
     pof = price_of_fairness((f1, f2), ideal, nadir)
     pou = price_of_utility((f1, f2), ideal, nadir)
@@ -71,9 +71,12 @@ function price_nash(probs, ideal, nadir)
 end
 
 
-function _price_objectives!(fid, dicts, group, scheme, ideal, nadir, price_fn)
+function _price_objectives!(fid, dicts, group, scheme, price_fn)
     single_dict, linear_dict, model_dict = dicts
+
     if haskey(fid, "stats/ideal/$scheme") && haskey(fid, "stats/probs/single/$scheme")
+        ideal = fid["stats/ideal/$group"]
+        nadir = fid["stats/nadir/$group"]
         probs = fid["stats/probs/single/$scheme"]
         pof_single, pou_single = price_fn(probs, ideal, nadir)
         pof_single = restrict(pof_single, 0.0, 1.0)
@@ -87,6 +90,8 @@ function _price_objectives!(fid, dicts, group, scheme, ideal, nadir, price_fn)
     end
 
     if haskey(fid, "stats/pof/linear/$scheme") && haskey(fid, "stats/probs/linear/$scheme")
+        ideal = fid["stats/ideal/$group"]
+        nadir = fid["stats/nadir/$group"]
         probs = fid["stats/probs/linear/$scheme"]
         pof_linear, pou_linear = price_fn(probs, ideal, nadir)
         pof_linear = restrict(pof_linear, 0.0, 1.0)
@@ -99,15 +104,12 @@ function _price_objectives!(fid, dicts, group, scheme, ideal, nadir, price_fn)
     end
 
     if haskey(fid, "stats/pof/model/$scheme") && haskey(fid, "stats/probs/model/$scheme")
+        ideal = fid["stats/ideal/$group"]
+        nadir = fid["stats/nadir/$group"]
         probs = fid["stats/probs/model/$scheme"]
         pof_model, pou_model = price_fn(probs, ideal, nadir)
         pof_model = restrict(pof_model, 0.0, 1.0)
         pou_model = restrict(pou_model, 0.0, 1.0)
-        if scheme == "IF"
-            println("$group")
-            println(pof_model)
-            println(pou_model, "\n")
-        end
         model_dict["POF-$group/$scheme"] = pof_model
         model_dict["POU-$group/$scheme"] = pou_model
     else
@@ -121,32 +123,16 @@ function price_objectives!(fid, dicts, scheme)
     sensitized = fid["stats/sensitized"]
 
     # IF is the reference
-    if haskey(fid, "stats/ideal/IF")
-        ideal = fid["stats/ideal/IF"]
-        nadir = fid["stats/nadir/IF"]
-        _price_objectives!(fid, dicts, "IF", scheme, ideal, nadir, price_if)
-    end
+    _price_objectives!(fid, dicts, "IF", scheme, ideal, nadir, price_if)
 
     # Rawls is the reference
-    if haskey(fid, "stats/ideal/Rawls")
-        ideal = fid["stats/ideal/Rawls"]
-        nadir = fid["stats/nadir/Rawls"]
-        _price_objectives!(fid, dicts, "Rawls", scheme, ideal, nadir, price_rawls)
-    end
+    _price_objectives!(fid, dicts, "Rawls", scheme, ideal, nadir, price_rawls)
 
     # Aristotle is the reference
-    if haskey(fid, "stats/ideal/Aristotle")
-        ideal = fid["stats/ideal/Aristotle"]
-        nadir = fid["stats/nadir/Aristotle"]
-        _price_objectives!(fid, dicts, "Aristotle", scheme, ideal, nadir, (probs, ideal, nadir) -> price_aristotle(probs, ideal, nadir, sensitized))
-    end
+    _price_objectives!(fid, dicts, "Aristotle", scheme, ideal, nadir, (probs, ideal, nadir) -> price_aristotle(probs, ideal, nadir, sensitized))
 
     # Nash is the reference
-    if haskey(fid, "stats/ideal/Nash")
-        ideal = fid["stats/ideal/Nash"]
-        nadir = fid["stats/nadir/Nash"]
-        _price_objectives!(fid, dicts, "Nash", scheme, ideal, nadir, price_nash) 
-    end
+    _price_objectives!(fid, dicts, "Nash", scheme, ideal, nadir, price_nash) 
 
 end
 
