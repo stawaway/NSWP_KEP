@@ -32,12 +32,11 @@ end
 
 function price_if(probs, ideal, nadir)
     avg = sum(val for (_, val) in probs) / length(probs)
-    f2 = -sum(abs(val - avg) for (_, val) in probs)
+    f2 = sum(abs(val - avg) for (_, val) in probs)
     f1 = sum(val for (_, val) in probs)
     pof = price_of_fairness((f1, f2), ideal, nadir)
-    pou = price_of_utility((f1, f2), ideal, nadir)
 
-    return pof, pou
+    return pof, f2
 end
 
 
@@ -45,9 +44,8 @@ function price_rawls(probs, ideal, nadir)
     f2 = minimum(values(probs))
     f1 = sum(val for (_, val) in probs)
     pof = price_of_fairness((f1, f2), ideal, nadir)
-    pou = price_of_utility((f1, f2), ideal, nadir)
 
-    return pof, pou
+    return pof, f2
 end
 
 
@@ -55,9 +53,8 @@ function price_aristotle(probs, ideal, nadir, sensitized)
     f2 = sum([val for (key, val) in probs if key in sensitized], init = 0.0)
     f1 = sum(val for (_, val) in probs)
     pof = price_of_fairness((f1, f2), ideal, nadir)
-    pou = price_of_utility((f1, f2), ideal, nadir)
 
-    return pof, pou
+    return pof, f2
 end
 
 
@@ -65,9 +62,28 @@ function price_nash(probs, ideal, nadir)
     f2 = sum(val > 0.0 ? log(val) : -Inf for (_, val) in probs)
     f1 = sum(val for (_, val) in probs)
     pof = price_of_fairness((f1, f2), ideal, nadir)
-    pou = price_of_utility((f1, f2), ideal, nadir)
 
-    return pof, pou
+    return pof, f2
+end
+
+
+function price_utility(scheme, ideal, nadir, numP)
+    total = round(ideal[1])
+    if scheme == "IF"
+        avg = total / numP
+        return sum(1.0 - avg for i = 1:total) + sum(abs(0.0 - avg) for i = total + 1:numP)
+    end
+    if scheme == "Rawls"
+        return total < numP ? 0.0 : 1.0
+    end
+    if scheme == "Aristotle"
+        return nadir[2]
+    end
+    if scheme == "Nash"
+        return total < numP ? -Inf : 0.0
+    end
+
+    return 0.0
 end
 
 
@@ -80,7 +96,6 @@ function _price_objectives!(fid, dicts, group, scheme, price_fn)
         probs = fid["stats/probs/single/$scheme"]
         pof_single, pou_single = price_fn(probs, ideal, nadir)
         pof_single = restrict(pof_single, 0.0, 1.0)
-        pou_single = restrict(pou_single, 0.0, 1.0)
 
         single_dict["POF-$group/$scheme"] = pof_single
         single_dict["POU-$group/$scheme"] = pou_single
@@ -95,7 +110,6 @@ function _price_objectives!(fid, dicts, group, scheme, price_fn)
         probs = fid["stats/probs/linear/$scheme"]
         pof_linear, pou_linear = price_fn(probs, ideal, nadir)
         pof_linear = restrict(pof_linear, 0.0, 1.0)
-        pou_linear = restrict(pou_linear, 0.0, 1.0)
         linear_dict["POF-$group/$scheme"] = pof_linear
         linear_dict["POU-$group/$scheme"] = pou_linear
     else
@@ -109,7 +123,6 @@ function _price_objectives!(fid, dicts, group, scheme, price_fn)
         probs = fid["stats/probs/model/$scheme"]
         pof_model, pou_model = price_fn(probs, ideal, nadir)
         pof_model = restrict(pof_model, 0.0, 1.0)
-        pou_model = restrict(pou_model, 0.0, 1.0)
         model_dict["POF-$group/$scheme"] = pof_model
         model_dict["POU-$group/$scheme"] = pou_model
     else
@@ -133,7 +146,6 @@ function price_objectives!(fid, dicts, scheme)
 
     # Nash is the reference
     _price_objectives!(fid, dicts, "Nash", scheme, price_nash) 
-
 end
 
 
@@ -239,54 +251,20 @@ function file_data(filename)
 
         # get the POF & POU
         price_objectives!(fid, (single_dict, linear_dict, model_dict), scheme)
-#        if haskey(fid, "stats/ideal/$scheme")
-#            ideal = fid["stats/ideal/$scheme"]
-#            nadir = fid["stats/nadir/$scheme"]
-#            sol = (ideal[2], nadir[1])
-#            pof_single = price_of_fairness(sol, ideal, nadir)
-#            single_dict["POF/$scheme"] = 0.0 <= pof_single <= 1.0 ? pof_single : -1.0
-#        else
-#            single_dict["POF/$scheme"] = -1.0
-#        end
-#
-#        if haskey(fid, "stats/pof/linear/$scheme")
-#            pof_linear = fid["stats/pof/linear/$scheme"]
-#            linear_dict["POF/$scheme"] = 0.0 <= pof_linear <= 1.0 ? pof_linear : -1.0
-#        else
-#            linear_dict["POF/$scheme"] = -1.0
-#        end
-#
-#        if haskey(fid, "stats/pof/model/$scheme")
-#            pof_model = fid["stats/pof/model/$scheme"]
-#            model_dict["POF/$scheme"] = 0.0 <= pof_model <= 1.0 ? pof_model : -1.0
-#        else
-#            model_dict["POF/$scheme"] = -1.0
-#        end
-#
-#        # get the POU
-#        if haskey(fid, "stats/ideal/$scheme")
-#            nadir = fid["stats/ideal/$scheme"]
-#            nadir = fid["stats/nadir/$scheme"]
-#            sol = (ideal[1], nadir[2])
-#            pou_single = price_of_utility(sol, ideal, nadir)
-#            single_dict["POU/$scheme"] = 0.0 <= pou_single <= 1.0 ? pou_single : -1.0
-#        else
-#            single_dict["POU/$scheme"] = -1.0
-#        end
-#
-#        if haskey(fid, "stats/pou/linear/$scheme")
-#            pou_linear = fid["stats/pou/linear/$scheme"]
-#            linear_dict["POU/$scheme"] = 0.0 <= pou_linear <= 1.0 ? pou_linear : -1.0
-#        else
-#            linear_dict["POU/$scheme"] = -1.0
-#        end
-#
-#        if haskey(fid, "stats/pou/model/$scheme")
-#            pou_model = fid["stats/pou/model/$scheme"]
-#            model_dict["POU/$scheme"] = 0.0 <= pou_model <= 1.0 ? pou_model : -1.0
-#        else
-#            model_dict["POU/$scheme"] = -1.0
-#        end
+        if haskey(fid, "stats/ideal/$scheme")
+            ideal = fid["stats/ideal/$scheme"]
+            nadir = fid["stats/nadir/$scheme"]
+            numP = length(fid["stats/feasible"])
+            pof_single = 0.0
+            pou_single = price_utility(scheme, ideal, nadir, numP)
+            
+            single_dict["POF-$scheme/Utilitarian"] = pof_single
+            single_dict["POU-$scheme/Utilitarian"] = pou_single
+        else
+            single_dict["POF-$scheme/Utilitarian"] = -1.0
+            single_dict["POU-$scheme/Utilitarian"] = -1.0
+        end
+
 
         # get the support size
         if haskey(fid, "stats/support_size/single/$scheme")
