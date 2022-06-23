@@ -55,9 +55,10 @@ function fairness_objective!(model)
     feasible = model[:submodel][:feasible]
     sensitized = model[:submodel][:sensitized]
 
-    return @expression(model, 
-        sum(A[j][i] * variable_by_name(model, "δ[$j]") for j = 1:length(A) 
-        for i = intersect(feasible, sensitized))) 
+#    return @expression(model, 
+#        sum(A[j][i] * variable_by_name(model, "δ[$j]") for j = 1:length(A) 
+#        for i = intersect(feasible, sensitized)))
+    return @expression(model, variable_by_name(model, "y[2]"))
 end
 
 
