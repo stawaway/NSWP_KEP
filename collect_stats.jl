@@ -23,8 +23,8 @@ function restrict(val, lb, ub)
     if val == -1.0
         return val
     end
-    retval = lb <= val ? val  : lb
-    retval = val <= ub ? val : ub
+    retval = lb <= val ? val : lb
+    retval = retval <= ub ? retval : ub
 
     return retval
 end
@@ -123,16 +123,16 @@ function price_objectives!(fid, dicts, scheme)
     sensitized = fid["stats/sensitized"]
 
     # IF is the reference
-    _price_objectives!(fid, dicts, "IF", scheme, ideal, nadir, price_if)
+    _price_objectives!(fid, dicts, "IF", scheme, price_if)
 
     # Rawls is the reference
-    _price_objectives!(fid, dicts, "Rawls", scheme, ideal, nadir, price_rawls)
+    _price_objectives!(fid, dicts, "Rawls", scheme, price_rawls)
 
     # Aristotle is the reference
-    _price_objectives!(fid, dicts, "Aristotle", scheme, ideal, nadir, (probs, ideal, nadir) -> price_aristotle(probs, ideal, nadir, sensitized))
+    _price_objectives!(fid, dicts, "Aristotle", scheme, (probs, ideal, nadir) -> price_aristotle(probs, ideal, nadir, sensitized))
 
     # Nash is the reference
-    _price_objectives!(fid, dicts, "Nash", scheme, ideal, nadir, price_nash) 
+    _price_objectives!(fid, dicts, "Nash", scheme, price_nash) 
 
 end
 
