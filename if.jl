@@ -78,7 +78,7 @@ function reference_point!(model, submodel, A; stats = Stats(time(), 0, Dict{Int,
     @objective(model, Max, f2)
     generate_column_master!(model, solve_subproblem!, update_constr!, A, stats = stats)
     i2 = objective_value(model)
-    stats.solution = Dict(i => value(variable_by_name(model, "z[$i]")) for i in submodel[:feasible]) 
+    stats.solution = Dict(i => value(variable_by_name(model, "z[$i]") + variable_by_name(model, "z0")) for i in submodel[:feasible]) 
 
     # add temp constraint and optimize to get d1
     temp = @constraint(model, f2 == i2)
