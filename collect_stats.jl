@@ -71,7 +71,7 @@ function price_utility(scheme, ideal, nadir, numP)
     total = round(ideal[1])
     if scheme == "IF"
         avg = total / numP
-        return sum(1.0 - avg for i = 1:total) + sum(abs(0.0 - avg) for i = total + 1:numP)
+        return sum(1.0 - avg for i = 1:total; init = 0.0) + sum(abs(0.0 - avg) for i = total + 1:numP; init = 0.0)
     end
     if scheme == "Rawls"
         return total < numP ? 0.0 : 1.0
@@ -90,7 +90,7 @@ end
 function _price_objectives!(fid, dicts, group, scheme, price_fn)
     single_dict, linear_dict, model_dict = dicts
 
-    if haskey(fid, "stats/ideal/$scheme") && haskey(fid, "stats/probs/single/$scheme")
+    if haskey(fid, "stats/ideal/$group") && haskey(fid, "stats/probs/single/$scheme")
         ideal = fid["stats/ideal/$group"]
         nadir = fid["stats/nadir/$group"]
         probs = fid["stats/probs/single/$scheme"]
@@ -104,7 +104,7 @@ function _price_objectives!(fid, dicts, group, scheme, price_fn)
         single_dict["POU-$group/$scheme"] = -1.0
     end
 
-    if haskey(fid, "stats/pof/linear/$scheme") && haskey(fid, "stats/probs/linear/$scheme")
+    if haskey(fid, "stats/ideal/$group") && haskey(fid, "stats/probs/linear/$scheme")
         ideal = fid["stats/ideal/$group"]
         nadir = fid["stats/nadir/$group"]
         probs = fid["stats/probs/linear/$scheme"]
@@ -117,7 +117,7 @@ function _price_objectives!(fid, dicts, group, scheme, price_fn)
         linear_dict["POU-$group/$scheme"] = -1.0
     end
 
-    if haskey(fid, "stats/pof/model/$scheme") && haskey(fid, "stats/probs/model/$scheme")
+    if haskey(fid, "stats/ideal/$group") && haskey(fid, "stats/probs/model/$scheme")
         ideal = fid["stats/ideal/$group"]
         nadir = fid["stats/nadir/$group"]
         probs = fid["stats/probs/model/$scheme"]
@@ -133,7 +133,11 @@ end
 
 
 function price_objectives!(fid, dicts, scheme)
-    sensitized = fid["stats/sensitized"]
+    if haskey(fid, "stats/sensitized")
+        sensitized = fid["stats/sensitized"]
+    else
+        sensitized = Set{Int}()
+    end
 
     # IF is the reference
     _price_objectives!(fid, dicts, "IF", scheme, price_if)
@@ -332,8 +336,11 @@ function collect_stats(dir, output)
                 end
                 push!(model[key], val)
             end
-        catch EOFError
-            continue
+        catch e 
+            if isa(e, EOFError)
+                continue
+            end
+            throw(e)
         end
     end
 
