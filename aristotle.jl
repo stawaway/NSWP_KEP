@@ -79,6 +79,7 @@ function reference_point!(model, submodel, A; stats = Stats(time(), 0, Dict{Int,
     # optimize to get f2
     f2 = fairness_objective!(model)
     @objective(model, Max, f2)
+    stats.time = time()
     generate_column_master!(model, solve_subproblem!, update_constr!, A, stats = stats)
     i2 = objective_value(model)
     stats.solution = Dict(i => sum(A[j][i] * value(variable_by_name(model, "δ[$j]")) for j = length(A)) for i in submodel[:feasible])
@@ -102,7 +103,6 @@ function reference_point!(model, submodel, A; stats = Stats(time(), 0, Dict{Int,
 
     # change the objective to f2 to compute d2
     @objective(model, Max, f2)
-    stats.time = time()
     generate_column_master!(model, solve_subproblem!, update_constr!, A)
     d2 = objective_value(model)
     delete(model, temp)
