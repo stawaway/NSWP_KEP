@@ -299,6 +299,19 @@ function support_size(model, A)
 end
 
 
+function support_worst(model, A)
+    worst = length(A[1]) 
+    for i = 1:length(A)
+        var = variable_by_name(model, "δ[$i]")
+        if value(var) > 0
+            worst = min(worst, trunc(Int64, sum(values(A[i]))))
+        end
+    end
+
+    return worst
+end
+
+
 mutable struct Stats 
     time::Float64
     support::Int

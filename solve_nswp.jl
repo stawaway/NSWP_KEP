@@ -72,6 +72,7 @@ function main()
     fid["stats/objective_value/model/$nswp_module"] = sol
     fid["stats/probs/model/$nswp_module"] = probs
     fid["stats/support_size/model/$nswp_module"] = support_size(model, model[:A]) #length(model[:A]) # TODO Keep only the solutions with nonzero weights
+    fid["stats/support_worst/model/$nswp_module"] = support_worst(model, model[:A]) #length(model[:A]) # TODO Keep only the solutions with nonzero weights
     fid["stats/time/model/$nswp_module"] = time() - starttime
     fid["stats/ideal_distance/model/$nswp_module"] = distance_to_ideal(sol, ideal, nadir)
     fid["stats/nadir_distance/model/$nswp_module"] = distance_to_nadir(sol, ideal, nadir)

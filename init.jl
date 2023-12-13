@@ -15,6 +15,14 @@ s = ArgParseSettings()
     "--skip", "-s"
         help = "skip rebuilding the graph and HPIEF submodel"
         action = :store_true
+    "--cycle_size"
+        help = "The cap on cycle size"
+        arg_type = Int
+        default = 3
+    "--path_size"
+        help = "The cap on path starting with an NDD"
+        arg_type = Int
+        default = 3
     "nswp_module"
         help = "NSWP module that is used"
         required = true
@@ -29,6 +37,8 @@ dir = parsed_args["dir"]
 filename = parsed_args["filename"]
 nswp_module = parsed_args["nswp_module"]
 model_path = parsed_args["model_path"]
+cycle_size = parsed_args["cycle_size"]
+path_size = parsed_args["path_size"]
 exp_path = parsed_args["exp_path"]
 skip = parsed_args["skip"]
 
@@ -53,10 +63,10 @@ eval(expr)
 
 macro setup()
     ex1 = quote
-        L = 3
+        L = cycle_size
         G = read_input(dir, filename)
         d = copy_shortest_paths(G)
-        K, K_ = get_positions(G, d, 3)
+        K, K_ = get_positions(G, d, L)
         submodel = build_HPIEF(G, d, K, K_, L)
         feasible = feasible_subgraph!(submodel, G, d, K, K_, L)
         sensitized = submodel[:sensitized]
