@@ -97,7 +97,7 @@ function build_HPIEF(G, d, K, K_, L; threshold = 0.8)
         end
     end
     @constraint(submodel, 
-        flow[l = 1 + graphsize(G; P = false):graphsize(G) - 1, i = l + 1:graphsize(G), k = 1:L - 1], 
+        flow[l = 1:graphsize(G), i = l + 1:graphsize(G), k = 1:L - 1], 
         flow_expr1[l, i, k] == flow_expr2[l, i, k])
 
     f_1 = sum(constraint_object(capacity[i]).func for i = 1 + graphsize(G; P = false):graphsize(G))
@@ -154,7 +154,7 @@ function feasible_subgraph!(submodel, G, d, K, K_, L)
             break
         end
         for i = 1 + graphsize(G; P = false):graphsize(G)
-            if value(constraint_object(capacity[i]).func) == 1.0
+            if value(constraint_object(capacity[i]).func) ≈ 1.0
                 push!(feasible, i)
             end
         end

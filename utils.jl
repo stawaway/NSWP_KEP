@@ -209,7 +209,7 @@ function get_positions(G, d, L)
     K = Dict{NTuple{3, Int}, Set{Int64}}()
     K_ = Dict{NTuple{2, Int}, Set{Int64}}()
     
-    for l = 1:graphsize(G) - 1
+    for l = 1:graphsize(G)
         for i = l:graphsize(G)
             for j = l:graphsize(G)
                 K[i, j, l] = Set(k for k = 1:L if d[l, i, l] < k && d[j, l, l] <= L - k)
