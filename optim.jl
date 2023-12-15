@@ -221,7 +221,7 @@ function feasible_subgraph!(submodel, G, d, K, K_, L)
 end
 
 
-function generate_column_master!(model, submodel_fn, update_constr_fn, A; stats = Stats(time(), 0, Dict{Int, Float64}()))
+function generate_column_master!(model, submodel_fn, update_constr_fn, A; stats = Stats(0.0, 0, Dict{Int, Float64}()))
     submodel = model[:submodel]
     optimize!(model)
     optimizer_status(model)
@@ -229,7 +229,11 @@ function generate_column_master!(model, submodel_fn, update_constr_fn, A; stats 
     while true
         # solve the submodel
         # add the solution to the Matrix A if it exists
-        if ! submodel_fn(model)
+        t = time()
+        solve_sub = submodel_fn(model)
+        t = time() - t
+        stats.time += t
+        if ! solve_sub
             sol = Dict(i => round(value(constraint_by_name(submodel, "capacity[$i]"))) for i = submodel[:feasible])
         else
             break
@@ -247,14 +251,13 @@ function generate_column_master!(model, submodel_fn, update_constr_fn, A; stats 
         end
     end
 
-    stats.time = time() - stats.time
     stats.support = sum(value(variable_by_name(model, "δ[$i]")) > 0 ? 1 : 0 for i = 1:length(A))
     return A
 end
 
 
-function solve!(model, submodel_fn, update_constr_fn)
-    generate_column_master!(model, submodel_fn, update_constr_fn, model[:A]) 
+function solve!(model, submodel_fn, update_constr_fn; stats = nothing)
+    generate_column_master!(model, submodel_fn, update_constr_fn, model[:A]; stats = stats) 
 end
 
 

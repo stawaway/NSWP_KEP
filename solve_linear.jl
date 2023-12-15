@@ -59,8 +59,10 @@ function main()
     set_optimizer_attribute(model, "MSK_IPAR_LOG", 0)
 
     # solve the model
-    starttime = time()
-    solve!(model, solve_subproblem!, update_constr!)
+    stats = Stats(0.0, 0, Dict{Int, Float64}())
+    ttime = time()
+    solve!(model, solve_subproblem!, update_constr!; stats = stats)
+    ttime = time() - ttime
 
     ideal = fid["stats/ideal/$nswp_module"]
     nadir = fid["stats/nadir/$nswp_module"]
@@ -73,7 +75,8 @@ function main()
     fid["stats/probs/linear/$nswp_module"] = probs
     fid["stats/support_size/linear/$nswp_module"] = support_size(model, model[:A]) # length(model[:A]) # TODO only keep nonzero weights
     fid["stats/support_worst/linear/$nswp_module"] = support_worst(model, model[:A]) # length(model[:A]) # TODO only keep nonzero weights
-    fid["stats/time/linear/$nswp_module"] = time() - starttime
+    fid["stats/time/linear/$nswp_module"] = ttime
+    fid["stats/time_subproblem/linear/$nswp_module"] = stats.time
     fid["stats/ideal_distance/linear/$nswp_module"] = distance_to_ideal(sol, ideal, nadir)
     fid["stats/nadir_distance/linear/$nswp_module"] = distance_to_nadir(sol, ideal, nadir)
     fid["stats/pof/linear/$nswp_module"] = price_of_fairness(sol, ideal, nadir)

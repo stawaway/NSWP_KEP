@@ -110,6 +110,8 @@ function reference_point!(model, submodel, A; stats = Stats(time(), 0, Dict{Int,
     ideal = (i1, i2)
     nadir = (d1, d2)
 
+    stats.time = time() - stats.time
+
     return ideal, nadir
 end
 
