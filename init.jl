@@ -110,7 +110,8 @@ end
 
 
 function module_specific!(fid, module_name, submodel)
-    stats = Stats(time(), 1, Dict{Int, Float64}())
+    stats = Stats(0.0, 1, Dict{Int, Float64}())
+    single_time = time()
     optimize!(submodel)
     init_sol = init(submodel)
     
@@ -119,7 +120,8 @@ function module_specific!(fid, module_name, submodel)
     ideal, nadir = reference_point!(model, submodel, model[:A], stats = stats)
  
     # save the time and support size
-    fid["stats/time/single/$nswp_module"] = stats.time
+    fid["stats/time/single/$nswp_module"] = time() - single_time
+    fid["stats/reference_time/$nswp_module"] = stats.time
     fid["stats/support_size/single/$nswp_module"] = stats.support
     fid["stats/probs/single/$nswp_module"] = stats.solution
 
