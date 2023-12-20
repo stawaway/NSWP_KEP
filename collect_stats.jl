@@ -90,7 +90,7 @@ end
 function _price_objectives!(fid, dicts, group, scheme, price_fn)
     single_dict, linear_dict, model_dict = dicts
 
-    if haskey(fid, "stats/ideal/$group") && haskey(fid, "stats/probs/single/$scheme")
+    if haskey(fid, "stats/ideal/$group") && haskey(fid, "stats/probs/single/$scheme") && !isempty(fid["stats/probs/single/$scheme"])
         ideal = fid["stats/ideal/$group"]
         nadir = fid["stats/nadir/$group"]
         probs = fid["stats/probs/single/$scheme"]
@@ -104,7 +104,7 @@ function _price_objectives!(fid, dicts, group, scheme, price_fn)
         single_dict["POU-$group/$scheme"] = -1.0
     end
 
-    if haskey(fid, "stats/ideal/$group") && haskey(fid, "stats/probs/linear/$scheme")
+    if haskey(fid, "stats/ideal/$group") && haskey(fid, "stats/probs/linear/$scheme") && !isempty(fid["stats/probs/linear/$scheme"])
         ideal = fid["stats/ideal/$group"]
         nadir = fid["stats/nadir/$group"]
         probs = fid["stats/probs/linear/$scheme"]
@@ -117,7 +117,7 @@ function _price_objectives!(fid, dicts, group, scheme, price_fn)
         linear_dict["POU-$group/$scheme"] = -1.0
     end
 
-    if haskey(fid, "stats/ideal/$group") && haskey(fid, "stats/probs/model/$scheme")
+    if haskey(fid, "stats/ideal/$group") && haskey(fid, "stats/probs/model/$scheme") && !isempty(fid["stats/probs/model/$scheme"])
         ideal = fid["stats/ideal/$group"]
         nadir = fid["stats/nadir/$group"]
         probs = fid["stats/probs/model/$scheme"]
@@ -191,23 +191,46 @@ function file_data(filename)
 
         if haskey(fid, "stats/time/linear/$scheme")
             time_linear = fid["stats/time/linear/$scheme"]
-            linear_dict["time/$scheme"] = time_linear + time_single
+            linear_dict["time/$scheme"] = time_linear
         else
             linear_dict["time/$scheme"] = -1.0
         end
 
         if haskey(fid, "stats/time/model/$scheme")
             time_model = fid["stats/time/model/$scheme"]
-            model_dict["time/$scheme"] = time_model + time_single
+            model_dict["time/$scheme"] = time_model
         else
             model_dict["time/$scheme"] = -1.0
+        end
+
+	# get the time spent in subproblem
+        if haskey(fid, "stats/time_subproblem/linear/$scheme")
+            time_model = fid["stats/time_subproblem/linear/$scheme"]
+            linear_dict["time_subproblem/$scheme"] = time_model
+        else
+            linear_dict["time_subproblem/$scheme"] = -1.0
+        end
+
+        if haskey(fid, "stats/time_subproblem/model/$scheme")
+            time_model = fid["stats/time_subproblem/model/$scheme"]
+            model_dict["time_subproblem/$scheme"] = time_model
+        else
+            model_dict["time_subproblem/$scheme"] = -1.0
+        end
+
+	# get the time spent to compute the ideal + reference points
+        if haskey(fid, "stats/reference_time/$scheme")
+            time_model = fid["stats/reference_time/$scheme"]
+            single_dict["reference_time/$scheme"] = time_model
+        else
+            single_dict["reference_time/$scheme"] = -1.0
         end
 
         # get the distance to ideal
         if haskey(fid, "stats/ideal/$scheme")
             ideal = fid["stats/ideal/$scheme"]
             nadir = fid["stats/nadir/$scheme"]
-            sol = (ideal[1], nadir[2])
+            sol = (nadir[1], ideal[2])
             val = distance_to_ideal(sol, ideal, nadir) 
             single_dict["ideal_distance/$scheme"] = 0.0 <= val <= 1.0 ? val : -1.0
         else
@@ -232,7 +255,7 @@ function file_data(filename)
         if haskey(fid, "stats/nadir/$scheme")
             ideal = fid["stats/ideal/$scheme"]
             nadir = fid["stats/nadir/$scheme"]
-            sol = (ideal[1], nadir[2])
+            sol = (nadir[1], ideal[2])
             val = distance_to_nadir(sol, ideal, nadir)
             single_dict["nadir_distance/$scheme"] = 0.0 <= val <= 1.0 ? val : -1.0
         else
@@ -292,6 +315,40 @@ function file_data(filename)
             linear_dict["support_size/$scheme"] = -1.0
         end
 
+
+	# get the worst number of transplants
+        if haskey(fid, "models/model/solutions/$scheme") && haskey(fid, "stats/ideal/$scheme")
+            solutions = fid["models/model/solutions/$scheme"]
+            if isa(solutions, Vector)
+                allcounts = map(solutions) do sol
+	            return length(sol) > 0 ? trunc(sum(values(sol))) : 0
+                end
+            else
+	        allcounts = [0]
+            end
+	    worst_count = minimum(allcounts)
+	    ideal = fid["stats/ideal/$scheme"]
+            single_dict["support_min/$scheme"] = worst_count / ideal[1] 
+        else
+            single_dict["support_min/$scheme"] = -1.0
+        end
+
+        if haskey(fid, "stats/support_worst/linear/$scheme") && haskey(fid, "stats/ideal/$scheme")
+            worst_count = fid["stats/support_worst/linear/$scheme"]
+	    ideal = fid["stats/ideal/$scheme"]
+            linear_dict["support_min/$scheme"] = worst_count / ideal[1]
+        else
+            linear_dict["support_min/$scheme"] = -1.0
+        end
+
+	if haskey(fid, "stats/support_worst/model/$scheme") && haskey(fid, "stats/ideal/$scheme")
+            worst_count = fid["stats/support_worst/model/$scheme"]
+	    ideal = fid["stats/ideal/$scheme"]
+            model_dict["support_min/$scheme"] = worst_count / ideal[1]
+        else
+            model_dict["support_min/$scheme"] = -1.0
+        end
+
     end
 
     close(fid)
@@ -337,7 +394,7 @@ function collect_stats(dir, output)
                 push!(model[key], val)
             end
         catch e 
-            if isa(e, EOFError)
+            if isa(e, EOFError) || isa(e, ArgumentError)
                 continue
             end
             throw(e)
